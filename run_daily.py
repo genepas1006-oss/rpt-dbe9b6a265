@@ -10,6 +10,7 @@ from analysis.technical import compute_technical_score
 from config import NIKKEI225
 from data_sources.yfinance_source import YFinanceSource
 from report.generate_report import generate_report
+from report.notify import notify_windows
 from tracking.evaluate import evaluate_pending_predictions
 from tracking.predictions_db import get_win_rate_stats, init_db, save_predictions
 
@@ -68,6 +69,16 @@ def run(prediction_date: date) -> Path:
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"
     report_path.write_text(report_text, encoding="utf-8")
+
+    if ranked:
+        top_summary = " / ".join(f"{c.name}({c.entry_price:,.0f}円)" for c in ranked[:3])
+    else:
+        top_summary = "本日は候補なし"
+    notify_windows(
+        "日本株リサーチレポート完了",
+        f"{prediction_date.isoformat()}分: {top_summary}",
+    )
+
     return report_path
 
 
