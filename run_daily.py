@@ -9,13 +9,16 @@ from analysis.scoring import CandidateInput, rank_candidates
 from analysis.technical import compute_technical_score
 from config import NIKKEI225
 from data_sources.yfinance_source import YFinanceSource
+from report.build_site import build_index
 from report.generate_report import generate_report
 from report.notify import notify_windows
+from report.publish import publish_docs
 from tracking.evaluate import evaluate_pending_predictions
 from tracking.predictions_db import get_win_rate_stats, init_db, save_predictions
 
 DB_PATH = "data/predictions.db"
 REPORTS_DIR = Path("reports")
+DOCS_DIR = Path("docs")
 HISTORY_DAYS = 500
 
 
@@ -78,6 +81,10 @@ def run(prediction_date: date) -> Path:
         "日本株リサーチレポート完了",
         f"{prediction_date.isoformat()}分: {top_summary}",
     )
+
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    build_index(REPORTS_DIR, DOCS_DIR, generated_at)
+    publish_docs(Path(__file__).parent, f"docs: {prediction_date.isoformat()}レポート公開")
 
     return report_path
 
