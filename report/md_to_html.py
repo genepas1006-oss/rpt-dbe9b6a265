@@ -2,10 +2,29 @@
 
 generate_report.py が出力する固定フォーマットのみを対象とした簡易コンバータであり、
 汎用Markdown仕様への対応は意図していない。
+
+承認済み配色ルール（2026-10-26）: プラス符号付きの数値は上昇方向として赤、
+マイナス符号付きの数値は下落方向として緑で表示する（日本の相場表示の慣例に合わせる）。
 """
 
 import html
 import re
+
+_DELTA_RE = re.compile(r"([+\-]\d+(?:\.\d+)?%)")
+
+
+def color_deltas(text: str) -> str:
+    """「+3.89%」「-3.00%」のような符号付き数値を赤/緑のspanで装飾する。
+
+    text は既にHTMLエスケープ済みであることを前提とする。
+    """
+
+    def repl(m: re.Match) -> str:
+        token = m.group(1)
+        color_var = "var(--up)" if token.startswith("+") else "var(--down)"
+        return f'<span style="color:{color_var}">{token}</span>'
+
+    return _DELTA_RE.sub(repl, text)
 
 
 def md_to_html(text: str) -> str:
@@ -49,4 +68,5 @@ def md_to_html(text: str) -> str:
 
 def _inline(text: str) -> str:
     escaped = html.escape(text)
-    return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+    bolded = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+    return color_deltas(bolded)

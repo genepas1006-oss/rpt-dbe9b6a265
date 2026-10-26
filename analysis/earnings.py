@@ -1,6 +1,6 @@
 """決算発表前後の過去パターンに基づくスコアリング。
 
-承認済み設計（2026-08-21）:
+承認済み設計（2026-08-21、買い）:
     直近の決算発表から3営業日以内（反応期間中）の銘柄のみを評価対象とする。
     過去の決算発表（直近を除く、最大4回）それぞれについて、
     「発表日（以降最初の営業日）の終値」から「5営業日後の終値」までの
@@ -10,6 +10,12 @@
     - 反応期間内 かつ post_earnings_drift_avg >= +2%: +2点
     - 反応期間内 かつ post_earnings_drift_avg >= 0%: +1点
     - それ以外（反応期間外、または過去実績不足）: 0点
+
+承認済み設計（2026-10-26、売り・ショート）:
+    買いロジックを反転。
+    - 反応期間内 かつ post_earnings_drift_avg <= -2%: +2点
+    - 反応期間内 かつ post_earnings_drift_avg <= 0%: +1点
+    - それ以外: 0点
 """
 
 from dataclasses import dataclass, field
@@ -38,16 +44,16 @@ def _first_index_on_or_after(bars: list[DailyBar], target: date) -> int | None:
     return None
 
 
-def compute_earnings_score(
+def _compute_drift(
     bars: list[DailyBar],
     earnings_dates: list[date],
-    drift_window: int = DRIFT_WINDOW_DAYS,
-    min_history: int = MIN_HISTORY,
-    reaction_window: int = REACTION_WINDOW_DAYS,
-) -> EarningsScore | None:
-    """日次バー列（日付昇順）と決算発表日一覧からearnings_scoreを計算する。
+    drift_window: int,
+    min_history: int,
+    reaction_window: int,
+) -> tuple[int, bool, float | None] | None:
+    """decays_since_earnings・反応期間内判定・過去ドリフト平均を計算する（買い売り共通）。
 
-    決算発表日の実績が一切ない場合はNoneを返す（呼び出し側で「決算データなし」扱い）。
+    決算発表日の実績が一切ない場合はNoneを返す。
     """
     if not bars:
         return None
@@ -68,13 +74,7 @@ def compute_earnings_score(
     in_reaction_window = days_since_earnings <= reaction_window
 
     if not in_reaction_window:
-        return EarningsScore(
-            days_since_earnings=days_since_earnings,
-            in_reaction_window=False,
-            post_earnings_drift_avg=None,
-            earnings_score=0,
-            reasons=[],
-        )
+        return days_since_earnings, False, None
 
     drift_returns = []
     for hist_date in reversed(past_earnings[:-1]):
@@ -93,19 +93,88 @@ def compute_earnings_score(
             break
 
     if len(drift_returns) < min_history:
+        return days_since_earnings, True, None
+
+    drift_avg = sum(drift_returns) / len(drift_returns)
+    return days_since_earnings, True, drift_avg
+
+
+def compute_earnings_score(
+    bars: list[DailyBar],
+    earnings_dates: list[date],
+    drift_window: int = DRIFT_WINDOW_DAYS,
+    min_history: int = MIN_HISTORY,
+    reaction_window: int = REACTION_WINDOW_DAYS,
+) -> EarningsScore | None:
+    """日次バー列（日付昇順）と決算発表日一覧から買い候補のearnings_scoreを計算する。
+
+    決算発表日の実績が一切ない場合はNoneを返す（呼び出し側で「決算データなし」扱い）。
+    """
+    result = _compute_drift(bars, earnings_dates, drift_window, min_history, reaction_window)
+    if result is None:
+        return None
+    days_since_earnings, in_reaction_window, drift_avg = result
+
+    if not in_reaction_window or drift_avg is None:
         return EarningsScore(
             days_since_earnings=days_since_earnings,
-            in_reaction_window=True,
-            post_earnings_drift_avg=None,
+            in_reaction_window=in_reaction_window,
+            post_earnings_drift_avg=drift_avg,
             earnings_score=0,
             reasons=[],
         )
 
-    drift_avg = sum(drift_returns) / len(drift_returns)
-
     if drift_avg >= 0.02:
         earnings_score = 2
     elif drift_avg >= 0.0:
+        earnings_score = 1
+    else:
+        earnings_score = 0
+
+    reasons = []
+    if earnings_score > 0:
+        reasons.append(
+            f"決算発表{days_since_earnings}営業日後、過去{min_history}回の決算後"
+            f"平均ドリフト{drift_avg * 100:+.1f}%"
+        )
+
+    return EarningsScore(
+        days_since_earnings=days_since_earnings,
+        in_reaction_window=True,
+        post_earnings_drift_avg=drift_avg,
+        earnings_score=earnings_score,
+        reasons=reasons,
+    )
+
+
+def compute_short_earnings_score(
+    bars: list[DailyBar],
+    earnings_dates: list[date],
+    drift_window: int = DRIFT_WINDOW_DAYS,
+    min_history: int = MIN_HISTORY,
+    reaction_window: int = REACTION_WINDOW_DAYS,
+) -> EarningsScore | None:
+    """日次バー列（日付昇順）と決算発表日一覧から売り候補のearnings_scoreを計算する。
+
+    決算発表日の実績が一切ない場合はNoneを返す（呼び出し側で「決算データなし」扱い）。
+    """
+    result = _compute_drift(bars, earnings_dates, drift_window, min_history, reaction_window)
+    if result is None:
+        return None
+    days_since_earnings, in_reaction_window, drift_avg = result
+
+    if not in_reaction_window or drift_avg is None:
+        return EarningsScore(
+            days_since_earnings=days_since_earnings,
+            in_reaction_window=in_reaction_window,
+            post_earnings_drift_avg=drift_avg,
+            earnings_score=0,
+            reasons=[],
+        )
+
+    if drift_avg <= -0.02:
+        earnings_score = 2
+    elif drift_avg <= 0.0:
         earnings_score = 1
     else:
         earnings_score = 0

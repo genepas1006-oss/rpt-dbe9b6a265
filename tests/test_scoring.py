@@ -75,3 +75,15 @@ def test_fewer_than_top_n_qualified_returns_fewer():
     result = rank_candidates(candidates)
 
     assert len(result) == 1
+
+
+def test_sell_side_entry_price_is_above_close():
+    candidates = [
+        CandidateInput("AAA", "銘柄AAA", 1000, _tech(5, 2.25), _earn(2)),
+    ]
+
+    result = rank_candidates(candidates, side="sell")
+
+    assert len(result) == 1
+    assert result[0].side == "sell"
+    assert result[0].entry_price == 1005.0

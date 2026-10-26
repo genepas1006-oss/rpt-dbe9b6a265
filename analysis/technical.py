@@ -1,6 +1,6 @@
 """値動き・出来高に基づくテクニカルスコアリング。
 
-承認済み設計（2026-08-21）:
+承認済み設計（2026-08-21、買い）:
     - 出来高倍率 = 当日出来高 ÷ 直近20営業日（当日除く）平均出来高
         >=2.0倍: +2点 / >=1.5倍: +1点
     - 当日騰落率 = (当日終値 − 前日終値) ÷ 前日終値
@@ -9,6 +9,11 @@
         （高値=安値の日は0.5固定）
         >=0.8: +1点
     technical_score は上記3指標の加点合計（0〜5点）。
+
+承認済み設計（2026-10-26、売り・ショート）:
+    買いロジックを左右対称に反転。出来高倍率の加点基準は方向を問わず共通。
+    - 当日騰落率 <=-3%: +2点 / <=-1%: +1点
+    - 引け位置 <=0.2: +1点（安値圏で引け）
 """
 
 from dataclasses import dataclass, field
@@ -50,13 +55,25 @@ def _close_position_points(close_position: float) -> int:
     return 1 if close_position >= 0.8 else 0
 
 
-def compute_technical_score(
-    bars: list[DailyBar], lookback: int = LOOKBACK_DAYS
-) -> TechnicalScore | None:
-    """直近の日次バー列（日付昇順、最後の要素が当日）からテクニカルスコアを計算する。
+def _short_return_points(daily_return: float) -> int:
+    if daily_return <= -0.03:
+        return 2
+    if daily_return <= -0.01:
+        return 1
+    return 0
+
+
+def _short_close_position_points(close_position: float) -> int:
+    return 1 if close_position <= 0.2 else 0
+
+
+def _raw_metrics(
+    bars: list[DailyBar], lookback: int
+) -> tuple[float, float, float] | None:
+    """出来高倍率・当日騰落率・引け位置を計算する（買い売り共通）。
 
     直近lookback営業日分の当日より前のデータが揃わない場合や、
-    平均出来高・前日終値がゼロの場合はNoneを返す（呼び出し側で除外扱いとする）。
+    平均出来高・前日終値がゼロの場合はNoneを返す。
     """
     if len(bars) < lookback + 1:
         return None
@@ -77,6 +94,18 @@ def compute_technical_score(
     else:
         close_position = (today.close - today.low) / (today.high - today.low)
 
+    return volume_ratio, daily_return, close_position
+
+
+def compute_technical_score(
+    bars: list[DailyBar], lookback: int = LOOKBACK_DAYS
+) -> TechnicalScore | None:
+    """直近の日次バー列（日付昇順、最後の要素が当日）から買い候補のテクニカルスコアを計算する。"""
+    metrics = _raw_metrics(bars, lookback)
+    if metrics is None:
+        return None
+    volume_ratio, daily_return, close_position = metrics
+
     volume_points = _volume_points(volume_ratio)
     return_points = _return_points(daily_return)
     close_position_points = _close_position_points(close_position)
@@ -88,6 +117,39 @@ def compute_technical_score(
         reasons.append(f"当日{daily_return * 100:+.2f}%")
     if close_position_points > 0:
         reasons.append(f"高値圏({close_position:.2f})で引け")
+
+    return TechnicalScore(
+        volume_ratio=volume_ratio,
+        daily_return=daily_return,
+        close_position=close_position,
+        volume_points=volume_points,
+        return_points=return_points,
+        close_position_points=close_position_points,
+        technical_score=volume_points + return_points + close_position_points,
+        reasons=reasons,
+    )
+
+
+def compute_short_technical_score(
+    bars: list[DailyBar], lookback: int = LOOKBACK_DAYS
+) -> TechnicalScore | None:
+    """直近の日次バー列（日付昇順、最後の要素が当日）から売り候補のテクニカルスコアを計算する。"""
+    metrics = _raw_metrics(bars, lookback)
+    if metrics is None:
+        return None
+    volume_ratio, daily_return, close_position = metrics
+
+    volume_points = _volume_points(volume_ratio)
+    return_points = _short_return_points(daily_return)
+    close_position_points = _short_close_position_points(close_position)
+
+    reasons = []
+    if volume_points > 0:
+        reasons.append(f"出来高が{lookback}日平均の{volume_ratio:.2f}倍")
+    if return_points > 0:
+        reasons.append(f"当日{daily_return * 100:+.2f}%")
+    if close_position_points > 0:
+        reasons.append(f"安値圏({close_position:.2f})で引け")
 
     return TechnicalScore(
         volume_ratio=volume_ratio,

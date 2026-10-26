@@ -4,9 +4,9 @@ import argparse
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from analysis.earnings import compute_earnings_score
+from analysis.earnings import compute_earnings_score, compute_short_earnings_score
 from analysis.scoring import CandidateInput, rank_candidates
-from analysis.technical import compute_technical_score
+from analysis.technical import compute_short_technical_score, compute_technical_score
 from config import NIKKEI225
 from data_sources.yfinance_source import YFinanceSource
 from report.build_site import build_index
@@ -40,7 +40,8 @@ def run(prediction_date: date) -> Path:
     evaluate_pending_predictions(DB_PATH, source, as_of=prediction_date)
 
     start = prediction_date - timedelta(days=HISTORY_DAYS)
-    candidates = []
+    buy_candidates = []
+    sell_candidates = []
     for code, name in NIKKEI225:
         bars = source.get_daily_bars(code, start, prediction_date)
         if not bars or bars[-1].trade_date != prediction_date:
@@ -48,35 +49,55 @@ def run(prediction_date: date) -> Path:
             continue
 
         earnings_dates = source.get_earnings_dates(code)
-        technical = compute_technical_score(bars)
-        earnings = compute_earnings_score(bars, earnings_dates)
+        close = bars[-1].close
 
-        candidates.append(
+        buy_candidates.append(
             CandidateInput(
                 code=code,
                 name=name,
-                close=bars[-1].close,
-                technical=technical,
-                earnings=earnings,
+                close=close,
+                technical=compute_technical_score(bars),
+                earnings=compute_earnings_score(bars, earnings_dates),
+            )
+        )
+        sell_candidates.append(
+            CandidateInput(
+                code=code,
+                name=name,
+                close=close,
+                technical=compute_short_technical_score(bars),
+                earnings=compute_short_earnings_score(bars, earnings_dates),
             )
         )
 
-    ranked = rank_candidates(candidates)
+    ranked_buy = rank_candidates(buy_candidates, side="buy")
+    ranked_sell = rank_candidates(sell_candidates, side="sell")
     target_date = next_business_day(prediction_date)
 
-    if ranked:
-        save_predictions(DB_PATH, prediction_date, target_date, ranked)
+    if ranked_buy:
+        save_predictions(DB_PATH, prediction_date, target_date, ranked_buy)
+    if ranked_sell:
+        save_predictions(DB_PATH, prediction_date, target_date, ranked_sell)
 
-    stats = get_win_rate_stats(DB_PATH)
-    report_text = generate_report(prediction_date, target_date, ranked, stats)
+    buy_stats = get_win_rate_stats(DB_PATH, side="buy")
+    sell_stats = get_win_rate_stats(DB_PATH, side="sell")
+    report_text = generate_report(
+        prediction_date, target_date, ranked_buy, ranked_sell, buy_stats, sell_stats
+    )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"
     report_path.write_text(report_text, encoding="utf-8")
 
-    if ranked:
-        top_summary = " / ".join(f"{c.name}({c.entry_price:,.0f}円)" for c in ranked[:3])
-    else:
-        top_summary = "本日は候補なし"
+    summary_parts = []
+    if ranked_buy:
+        summary_parts.append(
+            "買い: " + " / ".join(f"{c.name}({c.entry_price:,.0f}円)" for c in ranked_buy[:3])
+        )
+    if ranked_sell:
+        summary_parts.append(
+            "売り: " + " / ".join(f"{c.name}({c.entry_price:,.0f}円)" for c in ranked_sell[:3])
+        )
+    top_summary = " ｜ ".join(summary_parts) if summary_parts else "本日は候補なし"
     notify_windows(
         "日本株リサーチレポート完了",
         f"{prediction_date.isoformat()}分: {top_summary}",

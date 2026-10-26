@@ -19,7 +19,7 @@ PREDICTION_DATE = date(2026, 8, 21)
 TARGET_DATE = date(2026, 8, 24)
 
 
-def _candidate(code: str, entry_price: float) -> RankedCandidate:
+def _candidate(code: str, entry_price: float, side: str = "buy") -> RankedCandidate:
     return RankedCandidate(
         code=code,
         name=f"銘柄{code}",
@@ -29,6 +29,7 @@ def _candidate(code: str, entry_price: float) -> RankedCandidate:
         volume_ratio=2.1,
         entry_price=entry_price,
         reasons=["テスト用"],
+        side=side,
     )
 
 
@@ -102,3 +103,61 @@ def test_get_pending_predictions_excludes_future_target_dates(tmp_path):
     pending = get_pending_predictions(db_path, PREDICTION_DATE)
 
     assert pending == []
+
+
+def test_sell_side_filled_and_win_case(tmp_path):
+    # 売り指値974.9円、翌営業日高値980円(>=974.9で約定)、終値960円(下落)→的中
+    db_path = str(tmp_path / "predictions.db")
+    init_db(db_path)
+    save_predictions(
+        db_path, PREDICTION_DATE, TARGET_DATE, [_candidate("EEE", 974.9, side="sell")]
+    )
+
+    [pending] = get_pending_predictions(db_path, TARGET_DATE)
+    assert pending.side == "sell"
+    record_evaluation(
+        db_path, prediction_id=pending.id, target_low=955.0, target_high=980.0, target_close=960.0
+    )
+
+    stats = get_win_rate_stats(db_path, side="sell")
+    assert stats.filled_count == 1
+    assert stats.win_count == 1
+    assert round(stats.win_rate, 4) == 1.0
+
+
+def test_sell_side_filled_and_loss_case(tmp_path):
+    # 売り指値974.9円で約定したが、終値980円(上昇)→不的中
+    db_path = str(tmp_path / "predictions.db")
+    init_db(db_path)
+    save_predictions(
+        db_path, PREDICTION_DATE, TARGET_DATE, [_candidate("FFF", 974.9, side="sell")]
+    )
+
+    [pending] = get_pending_predictions(db_path, TARGET_DATE)
+    record_evaluation(
+        db_path, prediction_id=pending.id, target_low=970.0, target_high=985.0, target_close=980.0
+    )
+
+    stats = get_win_rate_stats(db_path, side="sell")
+    assert stats.filled_count == 1
+    assert stats.win_count == 0
+
+
+def test_win_rate_stats_filters_by_side(tmp_path):
+    db_path = str(tmp_path / "predictions.db")
+    init_db(db_path)
+    save_predictions(
+        db_path,
+        PREDICTION_DATE,
+        TARGET_DATE,
+        [_candidate("DDD", 1194.0, side="buy"), _candidate("EEE", 974.9, side="sell")],
+    )
+
+    pending = get_pending_predictions(db_path, TARGET_DATE)
+    by_code = {p.code: p for p in pending}
+    record_evaluation(db_path, by_code["DDD"].id, target_low=1180.0, target_high=1210.0, target_close=1205.0)
+    record_evaluation(db_path, by_code["EEE"].id, target_low=955.0, target_high=980.0, target_close=960.0)
+
+    assert get_win_rate_stats(db_path).filled_count == 2
+    assert get_win_rate_stats(db_path, side="buy").filled_count == 1
+    assert get_win_rate_stats(db_path, side="sell").filled_count == 1
