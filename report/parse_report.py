@@ -19,6 +19,8 @@ class ParsedCandidate:
     breakdown: str
     entry_price: str
     reasons: list[str] = field(default_factory=list)
+    day_summary: str = ""
+    one_point: str = ""
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,8 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
         breakdown = ""
         entry_price = ""
         reasons: list[str] = []
+        day_summary = ""
+        one_point = ""
         for line in block.splitlines():
             line = line.strip()
             if line.startswith("- 内訳:"):
@@ -72,6 +76,10 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
                 entry_price = line.removeprefix("- 参考指値:").strip()
             elif line.startswith("- 根拠:"):
                 reasons = [r.strip() for r in line.removeprefix("- 根拠:").split("/")]
+            elif line.startswith("- 当日の値動き:"):
+                day_summary = line.removeprefix("- 当日の値動き:").strip()
+            elif line.startswith("- ワンポイント:"):
+                one_point = line.removeprefix("- ワンポイント:").strip()
 
         candidates.append(
             ParsedCandidate(
@@ -82,6 +90,8 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
                 breakdown=breakdown,
                 entry_price=entry_price,
                 reasons=reasons,
+                day_summary=day_summary,
+                one_point=one_point,
             )
         )
     return candidates

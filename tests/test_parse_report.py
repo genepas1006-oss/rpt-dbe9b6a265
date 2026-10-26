@@ -21,6 +21,11 @@ def test_parses_new_format_buy_and_sell_sections():
         entry_price=5608.8,
         reasons=["出来高が20日平均の2.45倍", "当日+3.89%"],
         side="buy",
+        day_open=5400.0,
+        day_high=5650.0,
+        day_low=5380.0,
+        day_close=5610.0,
+        day_volume=12_000_000,
     )
     sell = RankedCandidate(
         code="1234",
@@ -48,6 +53,8 @@ def test_parses_new_format_buy_and_sell_sections():
     assert parsed.sell_candidates[0].name == "テスト株"
     assert len(parsed.buy_stats_lines) == 3
     assert len(parsed.sell_stats_lines) == 3
+    assert "寄り付きから上昇して" in parsed.buy_candidates[0].one_point
+    assert "高値5,650.0円" in parsed.buy_candidates[0].day_summary
 
 
 def test_parses_legacy_format_as_buy_only():

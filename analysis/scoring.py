@@ -28,6 +28,10 @@ class CandidateInput:
     close: float
     technical: TechnicalScore | None
     earnings: EarningsScore | None
+    open: float = 0.0
+    high: float = 0.0
+    low: float = 0.0
+    volume: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,11 @@ class RankedCandidate:
     entry_price: float
     reasons: list[str] = field(default_factory=list)
     side: Side = "buy"
+    day_open: float = 0.0
+    day_high: float = 0.0
+    day_low: float = 0.0
+    day_close: float = 0.0
+    day_volume: float = 0.0
 
 
 def rank_candidates(
@@ -81,6 +90,11 @@ def rank_candidates(
                 entry_price=round(c.close * price_multiplier, 1),
                 reasons=reasons,
                 side=side,
+                day_open=c.open,
+                day_high=c.high,
+                day_low=c.low,
+                day_close=c.close,
+                day_volume=c.volume,
             )
         )
 

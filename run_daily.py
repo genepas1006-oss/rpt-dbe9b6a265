@@ -49,13 +49,17 @@ def run(prediction_date: date) -> Path:
             continue
 
         earnings_dates = source.get_earnings_dates(code)
-        close = bars[-1].close
+        today = bars[-1]
 
         buy_candidates.append(
             CandidateInput(
                 code=code,
                 name=name,
-                close=close,
+                close=today.close,
+                open=today.open,
+                high=today.high,
+                low=today.low,
+                volume=today.volume,
                 technical=compute_technical_score(bars),
                 earnings=compute_earnings_score(bars, earnings_dates),
             )
@@ -64,7 +68,11 @@ def run(prediction_date: date) -> Path:
             CandidateInput(
                 code=code,
                 name=name,
-                close=close,
+                close=today.close,
+                open=today.open,
+                high=today.high,
+                low=today.low,
+                volume=today.volume,
                 technical=compute_short_technical_score(bars),
                 earnings=compute_short_earnings_score(bars, earnings_dates),
             )

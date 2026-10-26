@@ -4,11 +4,14 @@
 （CLAUDE.md記載の方針）。
 
 2026-10-26: 買い候補・売り（ショート）候補の2セクション構成に変更。
+2026-10-26: 各候補に当日の値動き（寄り・高値・安値・引け・出来高）と
+    ワンポイント要約を追加。
 """
 
 from datetime import date
 
 from analysis.scoring import RankedCandidate
+from report.one_point_summary import build_one_point_summary
 from tracking.predictions_db import WinRateStats
 
 
@@ -40,6 +43,15 @@ def _candidate_section(
             lines.append(f"- 参考指値: {c.entry_price:,.1f}円")
             if c.reasons:
                 lines.append(f"- 根拠: {' / '.join(c.reasons)}")
+            lines.append(
+                f"- 当日の値動き: 始値{c.day_open:,.1f}円 / 高値{c.day_high:,.1f}円 / "
+                f"安値{c.day_low:,.1f}円 / 終値{c.day_close:,.1f}円 / "
+                f"出来高{c.day_volume:,.0f}株"
+            )
+            summary = build_one_point_summary(
+                c.day_open, c.day_high, c.day_low, c.day_close, c.volume_ratio
+            )
+            lines.append(f"- ワンポイント: {summary}")
             lines.append("")
     return lines
 
