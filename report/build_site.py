@@ -81,6 +81,9 @@ h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; color: var(--text-muted); }
 .card-detail .day-summary { color: var(--text-muted); margin: 0 0 6px; }
 .card-detail .one-point { margin: 0; }
 .card-detail .one-point-label { font-weight: bold; margin-right: 4px; }
+.card-detail .outlook { margin: 8px 0 0; padding: 8px 10px; border-left: 4px solid var(--up); background: rgba(128,128,128,.10); border-radius: 4px; }
+.card-detail .outlook.sell { border-left-color: var(--down); }
+.card-detail .outlook-label { display: block; font-weight: bold; font-size: .85em; margin-bottom: 2px; }
 .empty-msg { color: var(--text-muted); font-size: 0.9rem; }
 .history-layout { display: flex; gap: 20px; align-items: flex-start; }
 .history-nav { flex: 0 0 130px; position: sticky; top: 12px; display: flex;
@@ -126,7 +129,7 @@ def _candidate_card(c: ParsedCandidate, side: str) -> str:
 
     detail_html = ""
     expand_hint_html = ""
-    if c.day_summary or c.one_point:
+    if c.day_summary or c.one_point or c.outlook:
         day_summary_html = (
             f'<p class="day-summary">{color_deltas(html.escape(c.day_summary))}</p>'
             if c.day_summary
@@ -138,7 +141,15 @@ def _candidate_card(c: ParsedCandidate, side: str) -> str:
             if c.one_point
             else ""
         )
-        detail_html = f'<div class="card-detail">{day_summary_html}{one_point_html}</div>'
+        outlook_html = (
+            f'<p class="outlook {side}"><span class="outlook-label">明日の見通し</span>'
+            f"{html.escape(c.outlook)}</p>"
+            if c.outlook
+            else ""
+        )
+        detail_html = (
+            f'<div class="card-detail">{day_summary_html}{one_point_html}{outlook_html}</div>'
+        )
         expand_hint_html = '<p class="card-expand-hint">タップで当日の値動きを見る</p>'
 
     return f"""<details class="card{rank1_class}">

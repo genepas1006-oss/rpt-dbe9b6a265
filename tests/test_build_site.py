@@ -101,3 +101,17 @@ def test_no_reports_shows_placeholder_message(tmp_path):
     html_text = index_path.read_text(encoding="utf-8")
 
     assert "まだレポートが生成されていません。" in html_text
+
+
+def test_outlook_is_rendered_as_separate_block(tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    docs_dir = tmp_path / "docs"
+    _write_report(reports_dir, "2026-10-26", [_candidate("buy")], [_candidate("sell")])
+
+    html_text = build_index(reports_dir, docs_dir, "2026-10-26 16:00").read_text(encoding="utf-8")
+
+    assert '<p class="outlook buy"><span class="outlook-label">明日の見通し</span>' in html_text
+    assert '<p class="outlook sell"><span class="outlook-label">明日の見通し</span>' in html_text
+    # ワンポイント側には見通しが混ざらない
+    assert "ワンポイント:</span>寄り付きから上昇して、出来高が急増し、高値圏で引けた。</p>" in html_text

@@ -52,7 +52,8 @@ def _candidate_section(
                 c.day_open, c.day_high, c.day_low, c.day_close, c.volume_ratio
             )
             outlook = build_outlook(c.side, c.day_high, c.day_low, c.day_close, c.volume_ratio)
-            lines.append(f"- ワンポイント: {summary} 明日の見通し: {outlook}")
+            lines.append(f"- ワンポイント: {summary}")
+            lines.append(f"- 明日の見通し: {outlook}")
             lines.append("")
     return lines
 

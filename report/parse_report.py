@@ -21,6 +21,7 @@ class ParsedCandidate:
     reasons: list[str] = field(default_factory=list)
     day_summary: str = ""
     one_point: str = ""
+    outlook: str = ""
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,7 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
         reasons: list[str] = []
         day_summary = ""
         one_point = ""
+        outlook = ""
         for line in block.splitlines():
             line = line.strip()
             if line.startswith("- 内訳:"):
@@ -80,6 +82,8 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
                 day_summary = line.removeprefix("- 当日の値動き:").strip()
             elif line.startswith("- ワンポイント:"):
                 one_point = line.removeprefix("- ワンポイント:").strip()
+            elif line.startswith("- 明日の見通し:"):
+                outlook = line.removeprefix("- 明日の見通し:").strip()
 
         candidates.append(
             ParsedCandidate(
@@ -92,6 +96,7 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
                 reasons=reasons,
                 day_summary=day_summary,
                 one_point=one_point,
+                outlook=outlook,
             )
         )
     return candidates
