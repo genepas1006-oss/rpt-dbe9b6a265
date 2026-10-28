@@ -11,7 +11,7 @@
 from datetime import date
 
 from analysis.scoring import RankedCandidate
-from report.one_point_summary import build_one_point_summary
+from report.one_point_summary import build_one_point_summary, build_outlook
 from tracking.predictions_db import WinRateStats
 
 
@@ -51,7 +51,8 @@ def _candidate_section(
             summary = build_one_point_summary(
                 c.day_open, c.day_high, c.day_low, c.day_close, c.volume_ratio
             )
-            lines.append(f"- ワンポイント: {summary}")
+            outlook = build_outlook(c.side, c.day_high, c.day_low, c.day_close, c.volume_ratio)
+            lines.append(f"- ワンポイント: {summary} 明日の見通し: {outlook}")
             lines.append("")
     return lines
 
