@@ -42,6 +42,24 @@ python run_daily.py --date 2026-08-20
 
 **注意**: 日本の祝日（市場休場日）はスケジューラ側では判定していない。休場日に実行された場合、対象銘柄の当日データが取得できず「候補なし」のレポートになる想定（システムとしてはエラーにはならない）。
 
+### 2026-11-01: GitHub Actionsで平日の自動実行を再開
+
+- `.github/workflows/daily.yml` が平日16:10（JST）に `run_daily.py` を実行し、`docs/` を `main` へpushして
+  GitHub Pagesを更新する。手動実行は GitHub の Actions タブ → `daily-report` → Run workflow。
+- 予測DB（`data/`）と過去レポート（`reports/`）は `.gitignore` 対象のため、専用の **`state` ブランチ**に
+  毎回保存・復元する（`main` には入らない）。**公開リポジトリなので `state` ブランチも誰でも閲覧可能**
+  （`docs/` に公開済みの内容とほぼ同じ情報）。
+- 休場日は `scripts/check_market_open.py` が日経平均の当日足の有無で判定し、実行をスキップする。
+- **初回のみ**、PCで次を1回実行して既存の `data/` と `reports/` を `state` ブランチへ登録する
+  （やらないと的中率の累計と過去レポート一覧が空から始まる）:
+
+```bash
+python scripts/seed_state.py
+```
+
+- 二重実行を避けるため、PC側のタスクスケジューラは無効のままにする。
+- Yahoo Financeがクラウドからのアクセスを制限する場合は取得に失敗しうる。その場合ワークフローが失敗表示になる。
+
 ### 2026-10-26: 売り（ショート）候補を追加し、URLページを買い/売りで色分け
 
 - 買い候補ロジックを反転させた売り候補スコアリングを追加（`compute_short_technical_score`
