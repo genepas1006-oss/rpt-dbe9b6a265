@@ -1,9 +1,10 @@
 name: daily-report
 
 on:
-  schedule:
-    # 平日 16:10 JST（= 07:10 UTC）。後場終了後（15:30）のデータ反映を待つ。
-    - cron: "10 7 * * 1-5"
+  # state ブランチの初回登録（scripts/seed_state.py）が済むまで定時実行を止めている。
+  # 登録後に下の3行のコメントを外すと、平日 16:10 JST（= 07:10 UTC）に自動実行される。
+  # schedule:
+  #   - cron: "10 7 * * 1-5"
   workflow_dispatch:
 
 permissions:
