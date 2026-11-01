@@ -22,6 +22,10 @@ DOCS_DIR = Path("docs")
 HISTORY_DAYS = 500
 
 
+class PublishError(RuntimeError):
+    """レポートは生成できたが、GitHub Pagesへの公開に失敗した。"""
+
+
 def next_business_day(d: date) -> date:
     """土日をスキップした翌営業日を返す（日本の祝日は考慮していない・既知の簡略化）。"""
     next_day = d + timedelta(days=1)
@@ -113,7 +117,14 @@ def run(prediction_date: date) -> Path:
 
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
     build_index(REPORTS_DIR, DOCS_DIR, generated_at)
-    publish_docs(Path(__file__).parent, f"docs: {prediction_date.isoformat()}レポート公開")
+    result = publish_docs(Path(__file__).parent, f"docs: {prediction_date.isoformat()}レポート公開")
+    print(f"[publish] {result.status}: {result.detail}")
+    if not result.ok:
+        notify_windows(
+            "日本株リサーチ: 公開に失敗しました",
+            f"{prediction_date.isoformat()}分のレポートはPCに保存済みですが、サイトに公開されていません。",
+        )
+        raise PublishError(result.detail)
 
     return report_path
 
