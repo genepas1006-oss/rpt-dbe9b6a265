@@ -61,6 +61,9 @@ h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; color: var(--text-muted); }
 .card-detail .day-summary { color: var(--text-muted); margin: 0 0 6px; }
 .card-detail .one-point { margin: 0; }
 .card-detail .one-point-label { font-weight: bold; margin-right: 4px; }
+.card-detail .outlook { margin: 8px 0 0; padding: 8px 10px; border-left: 4px solid var(--up); background: rgba(128,128,128,.10); border-radius: 4px; }
+.card-detail .outlook.sell { border-left-color: var(--down); }
+.card-detail .outlook-label { display: block; font-weight: bold; font-size: .85em; margin-bottom: 2px; }
 .empty-msg { color: var(--text-muted); font-size: 0.9rem; }
 .history-layout { display: flex; gap: 20px; align-items: flex-start; }
 .history-nav { flex: 0 0 130px; position: sticky; top: 12px; display: flex;
@@ -83,9 +86,133 @@ details.day > .latest { border: none; padding: 0; margin: 8px 0 0; }
 </head>
 <body>
 <h1>日本株デイクローズ・リサーチ</h1>
-<p class="updated">最終更新: 2026-10-29 15:37</p>
+<p class="updated">最終更新: 2026-11-02 10:07</p>
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
-<div class="latest"><h2 class="side-heading buy">買い候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">180件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">129件（不成立: 51件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">41.1%</span></div></div><div class="card-grid"><details class="card rank1 buy">
+<div class="latest"><h2 class="side-heading buy">買い候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">185件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">134件（不成立: 51件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">41.0%</span></div></div><div class="card-grid"><details class="card rank1 buy">
+<summary>
+<div class="card-head">
+<span class="rank-badge">1</span>
+<span class="card-name">パナソニック　ホールディングス（6752）</span>
+<span class="side-badge buy">買い・スコア5</span>
+</div>
+<p class="card-price">3,643.7円</p>
+<p class="card-reasons">当日<span style="color:var(--up)">+3.21%</span> / 高値圏(0.88)で引け / 決算発表1営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+6.9%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値3,602.0円 / 高値3,680.0円 / 安値3,535.0円 / 終値3,662.0円 / 出来高8,614,000株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、高値圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>出来高を伴わない上昇のため、続伸には出来高の増加が条件。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">2</span>
+<span class="card-name">東京エレクトロン（8035）</span>
+<span class="side-badge buy">買い・スコア4</span>
+</div>
+<p class="card-price">9,979.9円</p>
+<p class="card-reasons">当日<span style="color:var(--up)">+5.42%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+6.1%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値9,664.0円 / 高値10,165.0円 / 安値9,655.0円 / 終値10,030.0円 / 出来高9,351,800株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">3</span>
+<span class="card-name">住友ファーマ（4506）</span>
+<span class="side-badge buy">買い・スコア4</span>
+</div>
+<p class="card-price">1,990.5円</p>
+<p class="card-reasons">当日<span style="color:var(--up)">+6.16%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+3.5%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値2,028.0円 / 高値2,074.5円 / 安値1,975.5円 / 終値2,000.5円 / 出来高2,772,300株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">4</span>
+<span class="card-name">日本碍子（5333）</span>
+<span class="side-badge buy">買い・スコア4</span>
+</div>
+<p class="card-price">4,896.4円</p>
+<p class="card-reasons">当日<span style="color:var(--up)">+6.68%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+11.3%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値5,013.0円 / 高値5,099.0円 / 安値4,906.0円 / 終値4,921.0円 / 出来高891,800株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、安値圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>売りに押された形で、翌日は戻りが鈍い可能性がある。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">5</span>
+<span class="card-name">日本たばこ産業（2914）</span>
+<span class="side-badge buy">買い・スコア4</span>
+</div>
+<p class="card-price">7,359.0円</p>
+<p class="card-reasons">当日<span style="color:var(--up)">+2.06%</span> / 高値圏(0.97)で引け / 決算発表3営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+6.2%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値7,247.0円 / 高値7,403.0円 / 安値7,193.0円 / 終値7,396.0円 / 出来高1,566,800株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、高値圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>出来高を伴わない上昇のため、続伸には出来高の増加が条件。</p></div>
+</details></div><h2 class="side-heading sell">売り候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">15件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">15件（不成立: 0件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">73.3%</span></div></div><div class="card-grid"><details class="card rank1 sell">
+<summary>
+<div class="card-head">
+<span class="rank-badge">1</span>
+<span class="card-name">ＳＣＲＥＥＮホールディングス（7735）</span>
+<span class="side-badge sell">売り・スコア4</span>
+</div>
+<p class="card-price">9,381.7円</p>
+<p class="card-reasons">当日<span style="color:var(--down)">-17.93%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-6.1%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値9,425.0円 / 高値9,632.0円 / 安値9,242.0円 / 終値9,335.0円 / 出来高2,583,600株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、中間圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">2</span>
+<span class="card-name">ＮＴＮ（6472）</span>
+<span class="side-badge sell">売り・スコア4</span>
+</div>
+<p class="card-price">345.3円</p>
+<p class="card-reasons">当日<span style="color:var(--down)">-4.32%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-2.1%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値342.0円 / 高値348.8円 / 安値336.0円 / 終値343.6円 / 出来高1,863,700株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、中間圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">3</span>
+<span class="card-name">アルプスアルパイン（6770）</span>
+<span class="side-badge sell">売り・スコア3</span>
+</div>
+<p class="card-price">1,893.4円</p>
+<p class="card-reasons">当日<span style="color:var(--down)">-9.64%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-1.6%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値1,922.0円 / 高値1,938.0円 / 安値1,865.0円 / 終値1,884.0円 / 出来高1,030,300株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、中間圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">4</span>
+<span class="card-name">住友電気工業（5802）</span>
+<span class="side-badge sell">売り・スコア3</span>
+</div>
+<p class="card-price">1,686.9円</p>
+<p class="card-reasons">当日<span style="color:var(--down)">-5.17%</span> / 安値圏(0.04)で引け</p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値1,730.0円 / 高値1,771.5円 / 安値1,675.0円 / 終値1,678.5円 / 出来高12,474,700株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>出来高を伴わない下落のため、続落には出来高の増加が条件。</p></div>
+</details><details class="card">
+<summary>
+<div class="card-head">
+<span class="rank-badge">5</span>
+<span class="card-name">富士通（6702）</span>
+<span class="side-badge sell">売り・スコア3</span>
+</div>
+<p class="card-price">3,586.8円</p>
+<p class="card-reasons">当日<span style="color:var(--down)">-1.46%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-5.2%</span></p>
+<p class="card-expand-hint">タップで当日の値動きを見る</p>
+</summary>
+<div class="card-detail"><p class="day-summary">始値3,618.0円 / 高値3,621.0円 / 安値3,483.0円 / 終値3,569.0円 / 出来高3,140,600株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、中間圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+</details></div></div>
+<h2>過去のレポート</h2>
+<div class="history-layout">
+<nav class="history-nav"><a href="#m-2026-10">2026年10月</a><a href="#m-2026-09">2026年9月</a><a href="#m-2026-08">2026年8月</a></nav>
+<div class="history-content"><section class="month-section" id="m-2026-10"><h3>2026年10月</h3><details class="day"><summary>2026-10-29</summary><div class="latest"><h2 class="side-heading buy">買い候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">180件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">129件（不成立: 51件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">41.1%</span></div></div><div class="card-grid"><details class="card rank1 buy">
 <summary>
 <div class="card-head">
 <span class="rank-badge">1</span>
@@ -205,11 +332,7 @@ details.day > .latest { border: none; padding: 0; margin: 8px 0 0; }
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
 <div class="card-detail"><p class="day-summary">始値2,078.0円 / 高値2,091.0円 / 安値1,890.0円 / 終値2,042.0円 / 出来高2,832,100株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、中間圏で引けた。</p></div>
-</details></div></div>
-<h2>過去のレポート</h2>
-<div class="history-layout">
-<nav class="history-nav"><a href="#m-2026-10">2026年10月</a><a href="#m-2026-09">2026年9月</a><a href="#m-2026-08">2026年8月</a></nav>
-<div class="history-content"><section class="month-section" id="m-2026-10"><h3>2026年10月</h3><details class="day"><summary>2026-10-28</summary><div class="latest"><h2 class="side-heading buy">買い候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">175件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">126件（不成立: 49件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">41.3%</span></div></div><div class="card-grid"><details class="card rank1 buy">
+</details></div></div></details><details class="day"><summary>2026-10-28</summary><div class="latest"><h2 class="side-heading buy">買い候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">175件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">126件（不成立: 49件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">41.3%</span></div></div><div class="card-grid"><details class="card rank1 buy">
 <summary>
 <div class="card-head">
 <span class="rank-badge">1</span>
