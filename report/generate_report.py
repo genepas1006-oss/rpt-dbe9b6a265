@@ -13,6 +13,7 @@ from datetime import date
 from analysis.scoring import RankedCandidate
 from report.one_point_summary import build_one_point_summary, build_outlook
 from tracking.predictions_db import WinRateStats
+from tracking.unfilled import UnfilledPrediction
 
 
 def _stats_lines(stats: WinRateStats) -> list[str]:
@@ -25,6 +26,18 @@ def _stats_lines(stats: WinRateStats) -> list[str]:
         lines.append("- 的中率（約定分のみ）: データなし")
     else:
         lines.append(f"- 的中率（約定分のみ）: {stats.win_rate * 100:.1f}%")
+    return lines
+
+
+def _unfilled_section(side_label: str, unfilled: list[UnfilledPrediction]) -> list[str]:
+    if not unfilled:
+        return []
+    lines = ["", f"## 不成立の履歴（{side_label}）", ""]
+    for u in unfilled:
+        lines.append(
+            f"- {u.prediction_date.isoformat()} | {u.target_date.isoformat()} | "
+            f"{u.name}（{u.code}） | {u.entry_price:,.1f}円 | {u.reason}"
+        )
     return lines
 
 
@@ -65,6 +78,8 @@ def generate_report(
     sell_candidates: list[RankedCandidate],
     buy_stats: WinRateStats,
     sell_stats: WinRateStats,
+    buy_unfilled: list[UnfilledPrediction] | None = None,
+    sell_unfilled: list[UnfilledPrediction] | None = None,
 ) -> str:
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
@@ -79,6 +94,8 @@ def generate_report(
         "## デモ検証成績（売り・現時点までの累計）",
         *_stats_lines(sell_stats),
     ]
+    lines += _unfilled_section("買い", buy_unfilled or [])
+    lines += _unfilled_section("売り", sell_unfilled or [])
 
     lines += _candidate_section(
         f"## 本日の買い候補（{target_date.isoformat()}向け・参考指値）",

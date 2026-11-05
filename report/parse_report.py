@@ -25,11 +25,22 @@ class ParsedCandidate:
 
 
 @dataclass(frozen=True)
+class ParsedUnfilled:
+    prediction_date: str
+    target_date: str
+    name: str
+    entry_price: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class ParsedReport:
     buy_stats_lines: list[str]
     sell_stats_lines: list[str]
     buy_candidates: list[ParsedCandidate]
     sell_candidates: list[ParsedCandidate]
+    buy_unfilled: list[ParsedUnfilled] = field(default_factory=list)
+    sell_unfilled: list[ParsedUnfilled] = field(default_factory=list)
 
     @property
     def has_sell_section(self) -> bool:
@@ -54,6 +65,18 @@ def _split_sections(text: str) -> list[tuple[str, str]]:
 
 def _parse_stats_lines(body: str) -> list[str]:
     return [line.strip("- ").strip() for line in body.splitlines() if line.strip().startswith("-")]
+
+
+def _parse_unfilled(body: str) -> list[ParsedUnfilled]:
+    items = []
+    for line in body.splitlines():
+        line = line.strip()
+        if not line.startswith("- "):
+            continue
+        parts = line.removeprefix("- ").split(" | ", 4)
+        if len(parts) == 5:
+            items.append(ParsedUnfilled(*(p.strip() for p in parts)))
+    return items
 
 
 def _parse_candidates(body: str) -> list[ParsedCandidate]:
@@ -109,6 +132,8 @@ def parse_report(text: str) -> ParsedReport:
     sell_stats: list[str] = []
     buy_candidates: list[ParsedCandidate] = []
     sell_candidates: list[ParsedCandidate] = []
+    buy_unfilled: list[ParsedUnfilled] = []
+    sell_unfilled: list[ParsedUnfilled] = []
 
     for heading, body in sections:
         if heading.startswith("デモ検証成績（買い"):
@@ -118,6 +143,10 @@ def parse_report(text: str) -> ParsedReport:
         elif heading.startswith("デモ検証成績"):
             # 旧フォーマット（買い売り分離前）は買い扱い
             buy_stats = _parse_stats_lines(body)
+        elif heading.startswith("不成立の履歴（買い"):
+            buy_unfilled = _parse_unfilled(body)
+        elif heading.startswith("不成立の履歴（売り"):
+            sell_unfilled = _parse_unfilled(body)
         elif heading.startswith("本日の買い候補"):
             buy_candidates = _parse_candidates(body)
         elif heading.startswith("本日の売り候補"):
@@ -131,4 +160,6 @@ def parse_report(text: str) -> ParsedReport:
         sell_stats_lines=sell_stats,
         buy_candidates=buy_candidates,
         sell_candidates=sell_candidates,
+        buy_unfilled=buy_unfilled,
+        sell_unfilled=sell_unfilled,
     )

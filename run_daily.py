@@ -15,6 +15,7 @@ from report.notify import notify_windows
 from report.publish import publish_docs
 from tracking.evaluate import evaluate_pending_predictions
 from tracking.predictions_db import get_win_rate_stats, init_db, save_predictions
+from tracking.unfilled import get_unfilled_predictions
 
 DB_PATH = "data/predictions.db"
 REPORTS_DIR = Path("reports")
@@ -94,7 +95,14 @@ def run(prediction_date: date) -> Path:
     buy_stats = get_win_rate_stats(DB_PATH, side="buy")
     sell_stats = get_win_rate_stats(DB_PATH, side="sell")
     report_text = generate_report(
-        prediction_date, target_date, ranked_buy, ranked_sell, buy_stats, sell_stats
+        prediction_date,
+        target_date,
+        ranked_buy,
+        ranked_sell,
+        buy_stats,
+        sell_stats,
+        get_unfilled_predictions(DB_PATH, "buy"),
+        get_unfilled_predictions(DB_PATH, "sell"),
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"

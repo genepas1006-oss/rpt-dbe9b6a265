@@ -115,3 +115,30 @@ def test_outlook_is_rendered_as_separate_block(tmp_path):
     assert '<p class="outlook sell"><span class="outlook-label">明日の見通し</span>' in html_text
     # ワンポイント側には見通しが混ざらない
     assert "ワンポイント:</span>寄り付きから上昇して、出来高が急増し、高値圏で引けた。</p>" in html_text
+
+
+def test_unfilled_history_button_and_reasons(tmp_path):
+    from tracking.unfilled import UnfilledPrediction
+
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    docs_dir = tmp_path / "docs"
+    sell_unfilled = [
+        UnfilledPrediction(
+            prediction_date=date(2026, 10, 27), target_date=date(2026, 10, 28), code="6841",
+            name="横河電機", side="sell", entry_price=4051.2,
+            target_low=3900.0, target_high=4040.0, target_close=3950.0,
+        )
+    ]
+    text = generate_report(
+        date(2026, 10, 28), date(2026, 10, 29), [_candidate("buy")], [_candidate("sell")],
+        STATS, STATS, [], sell_unfilled,
+    )
+    (reports_dir / "2026-10-28.md").write_text(text, encoding="utf-8")
+
+    html_text = build_index(reports_dir, docs_dir, "t").read_text(encoding="utf-8")
+
+    assert "不成立 1件の履歴を見る" in html_text
+    assert "横河電機" in html_text
+    assert "対象日の高値4,040.0円が参考指値4,051.2円まで上がらず（差11.2円・0.28%）" in html_text
+    assert html_text.count("履歴を見る") == 1  # 買いは不成立なしのためボタンなし

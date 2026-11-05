@@ -20,7 +20,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from report.md_to_html import color_deltas
-from report.parse_report import ParsedCandidate, ParsedReport, parse_report
+from report.parse_report import ParsedCandidate, ParsedReport, ParsedUnfilled, parse_report
 
 PAGE_TITLE = "日本株デイクローズ・リサーチ"
 
@@ -59,6 +59,15 @@ h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; color: var(--text-muted); }
 .stat-tile { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
 .stat-tile .cap { font-size: 0.75rem; color: var(--text-muted); display: block; }
 .stat-tile .val { font-size: 1.05rem; font-weight: bold; }
+.unfilled { margin: 0 0 12px; }
+.unfilled > summary { display: inline-block; cursor: pointer; padding: 6px 12px; border: 1px solid var(--border);
+                      border-radius: 6px; background: var(--surface-2); font-size: 0.9rem; }
+.unfilled ul { list-style: none; margin: 8px 0 0; padding: 0; max-height: 420px; overflow-y: auto; }
+.unfilled li { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; font-size: 0.9rem; }
+.unfilled li span { display: block; }
+.unfilled .uf-date { font-size: 0.75rem; color: var(--text-muted); }
+.unfilled .uf-name { font-weight: bold; }
+.unfilled .uf-reason { margin-top: 2px; }
 .card-grid { display: grid; gap: 10px; margin-bottom: 1em; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .card.rank1.buy { border-color: var(--buy-text); border-width: 2px; }
@@ -167,12 +176,34 @@ def _candidate_card(c: ParsedCandidate, side: str) -> str:
 </details>"""
 
 
+def _unfilled_block(items: list[ParsedUnfilled]) -> str:
+    if not items:
+        return ""
+    rows = "".join(
+        f'<li><span class="uf-date">{html.escape(u.prediction_date)}予測'
+        f"（{html.escape(u.target_date)}向け）</span>"
+        f'<span class="uf-name">{html.escape(u.name)}</span>'
+        f'<span class="uf-entry">参考指値 {html.escape(u.entry_price)}</span>'
+        f'<span class="uf-reason">{html.escape(u.reason)}</span></li>'
+        for u in items
+    )
+    return (
+        f'<details class="unfilled"><summary>不成立 {len(items)}件の履歴を見る</summary>'
+        f"<ul>{rows}</ul></details>"
+    )
+
+
 def _side_section(
-    heading: str, side: str, stats_lines: list[str], candidates: list[ParsedCandidate]
+    heading: str,
+    side: str,
+    stats_lines: list[str],
+    candidates: list[ParsedCandidate],
+    unfilled: list[ParsedUnfilled] | None = None,
 ) -> str:
     parts = [f'<h2 class="side-heading {side}">{heading}</h2>']
     if stats_lines:
         parts.append(_stat_row(stats_lines))
+    parts.append(_unfilled_block(unfilled or []))
     if candidates:
         cards = "".join(_candidate_card(c, side) for c in candidates)
         parts.append(f'<div class="card-grid">{cards}</div>')
@@ -182,9 +213,9 @@ def _side_section(
 
 
 def _render_report(parsed: ParsedReport) -> str:
-    out = _side_section("買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates)
+    out = _side_section("買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled)
     if parsed.has_sell_section:
-        out += _side_section("売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates)
+        out += _side_section("売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates, parsed.sell_unfilled)
     return out
 
 
