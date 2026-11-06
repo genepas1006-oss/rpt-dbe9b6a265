@@ -39,6 +39,15 @@ h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; color: var(--text-muted); }
 .stat-tile { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
 .stat-tile .cap { font-size: 0.75rem; color: var(--text-muted); display: block; }
 .stat-tile .val { font-size: 1.05rem; font-weight: bold; }
+.unfilled { margin: 0 0 12px; }
+.unfilled > summary { display: inline-block; cursor: pointer; padding: 6px 12px; border: 1px solid var(--border);
+                      border-radius: 6px; background: var(--surface-2); font-size: 0.9rem; }
+.unfilled ul { list-style: none; margin: 8px 0 0; padding: 0; max-height: 420px; overflow-y: auto; }
+.unfilled li { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; font-size: 0.9rem; }
+.unfilled li span { display: block; }
+.unfilled .uf-date { font-size: 0.75rem; color: var(--text-muted); }
+.unfilled .uf-name { font-weight: bold; }
+.unfilled .uf-reason { margin-top: 2px; }
 .card-grid { display: grid; gap: 10px; margin-bottom: 1em; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .card.rank1.buy { border-color: var(--buy-text); border-width: 2px; }
@@ -86,128 +95,128 @@ details.day > .latest { border: none; padding: 0; margin: 8px 0 0; }
 </head>
 <body>
 <h1>日本株デイクローズ・リサーチ</h1>
-<p class="updated">最終更新: 2026-11-06 15:37</p>
+<p class="updated">最終更新: 2026-11-06 18:44</p>
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
-<div class="latest"><h2 class="side-heading buy">買い候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">195件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">141件（不成立: 54件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">39.7%</span></div></div><div class="card-grid"><details class="card rank1 buy">
+<div class="latest"><h2 class="side-heading buy">買い候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">195件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">141件（不成立: 54件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">39.7%</span></div></div><details class="unfilled"><summary>不成立 54件の履歴を見る</summary><ul><li><span class="uf-date">2026-11-04予測（2026-11-05向け）</span><span class="uf-name">三菱商事（8058）</span><span class="uf-entry">参考指値 5,077.5円</span><span class="uf-reason">対象日の安値5,156.0円が参考指値5,077.5円まで下がらず（差78.5円・1.55%）</span></li><li><span class="uf-date">2026-11-04予測（2026-11-05向け）</span><span class="uf-name">日本航空（9201）</span><span class="uf-entry">参考指値 3,149.2円</span><span class="uf-reason">対象日の安値3,303.0円が参考指値3,149.2円まで下がらず（差153.8円・4.88%）</span></li><li><span class="uf-date">2026-11-04予測（2026-11-05向け）</span><span class="uf-name">ヤマトホールディングス（9064）</span><span class="uf-entry">参考指値 2,170.6円</span><span class="uf-reason">対象日の安値2,195.0円が参考指値2,170.6円まで下がらず（差24.4円・1.12%）</span></li><li><span class="uf-date">2026-10-28予測（2026-10-29向け）</span><span class="uf-name">キオクシアホールディングス（285A）</span><span class="uf-entry">参考指値 14,387.7円</span><span class="uf-reason">対象日の安値14,455.0円が参考指値14,387.7円まで下がらず（差67.3円・0.47%）</span></li><li><span class="uf-date">2026-10-28予測（2026-10-29向け）</span><span class="uf-name">アドバンテスト（6857）</span><span class="uf-entry">参考指値 34,745.4円</span><span class="uf-reason">対象日の安値35,790.0円が参考指値34,745.4円まで下がらず（差1,044.6円・3.01%）</span></li><li><span class="uf-date">2026-10-27予測（2026-10-28向け）</span><span class="uf-name">イビデン（4062）</span><span class="uf-entry">参考指値 8,927.1円</span><span class="uf-reason">対象日の安値9,236.0円が参考指値8,927.1円まで下がらず（差308.9円・3.46%）</span></li><li><span class="uf-date">2026-10-27予測（2026-10-28向け）</span><span class="uf-name">ファナック（6954）</span><span class="uf-entry">参考指値 5,763.0円</span><span class="uf-reason">対象日の安値5,846.0円が参考指値5,763.0円まで下がらず（差83.0円・1.44%）</span></li><li><span class="uf-date">2026-10-27予測（2026-10-28向け）</span><span class="uf-name">東海カーボン（5301）</span><span class="uf-entry">参考指値 1,927.3円</span><span class="uf-reason">対象日の安値1,955.0円が参考指値1,927.3円まで下がらず（差27.7円・1.44%）</span></li><li><span class="uf-date">2026-10-27予測（2026-10-28向け）</span><span class="uf-name">しずおかフィナンシャルグループ（5831）</span><span class="uf-entry">参考指値 2,999.9円</span><span class="uf-reason">対象日の安値3,014.0円が参考指値2,999.9円まで下がらず（差14.1円・0.47%）</span></li><li><span class="uf-date">2026-10-26予測（2026-10-27向け）</span><span class="uf-name">ファナック（6954）</span><span class="uf-entry">参考指値 5,608.8円</span><span class="uf-reason">対象日の安値5,630.0円が参考指値5,608.8円まで下がらず（差21.2円・0.38%）</span></li><li><span class="uf-date">2026-10-26予測（2026-10-27向け）</span><span class="uf-name">ソシオネクスト（6526）</span><span class="uf-entry">参考指値 1,819.4円</span><span class="uf-reason">対象日の安値1,899.5円が参考指値1,819.4円まで下がらず（差80.1円・4.40%）</span></li><li><span class="uf-date">2026-10-20予測（2026-10-21向け）</span><span class="uf-name">テルモ（4543）</span><span class="uf-entry">参考指値 2,403.9円</span><span class="uf-reason">対象日の安値2,408.0円が参考指値2,403.9円まで下がらず（差4.1円・0.17%）</span></li><li><span class="uf-date">2026-10-20予測（2026-10-21向け）</span><span class="uf-name">横河電機（6841）</span><span class="uf-entry">参考指値 4,530.2円</span><span class="uf-reason">対象日の安値4,588.0円が参考指値4,530.2円まで下がらず（差57.8円・1.28%）</span></li><li><span class="uf-date">2026-10-20予測（2026-10-21向け）</span><span class="uf-name">大日本印刷（7912）</span><span class="uf-entry">参考指値 2,872.6円</span><span class="uf-reason">対象日の安値2,910.0円が参考指値2,872.6円まで下がらず（差37.4円・1.30%）</span></li><li><span class="uf-date">2026-10-19予測（2026-10-20向け）</span><span class="uf-name">ＩＮＰＥＸ（1605）</span><span class="uf-entry">参考指値 3,775.0円</span><span class="uf-reason">対象日の安値3,794.0円が参考指値3,775.0円まで下がらず（差19.0円・0.50%）</span></li><li><span class="uf-date">2026-10-15予測（2026-10-16向け）</span><span class="uf-name">住友ファーマ（4506）</span><span class="uf-entry">参考指値 1,818.4円</span><span class="uf-reason">対象日の安値1,825.5円が参考指値1,818.4円まで下がらず（差7.1円・0.39%）</span></li><li><span class="uf-date">2026-10-15予測（2026-10-16向け）</span><span class="uf-name">武田薬品工業（4502）</span><span class="uf-entry">参考指値 6,135.2円</span><span class="uf-reason">対象日の安値6,213.0円が参考指値6,135.2円まで下がらず（差77.8円・1.27%）</span></li><li><span class="uf-date">2026-10-15予測（2026-10-16向け）</span><span class="uf-name">住友不動産（8830）</span><span class="uf-entry">参考指値 3,141.2円</span><span class="uf-reason">対象日の安値3,161.0円が参考指値3,141.2円まで下がらず（差19.8円・0.63%）</span></li><li><span class="uf-date">2026-10-14予測（2026-10-15向け）</span><span class="uf-name">Ｊ．フロント　リテイリング（3086）</span><span class="uf-entry">参考指値 2,631.8円</span><span class="uf-reason">対象日の安値2,651.0円が参考指値2,631.8円まで下がらず（差19.2円・0.73%）</span></li><li><span class="uf-date">2026-10-08予測（2026-10-09向け）</span><span class="uf-name">野村総合研究所（4307）</span><span class="uf-entry">参考指値 5,313.3円</span><span class="uf-reason">対象日の安値5,400.0円が参考指値5,313.3円まで下がらず（差86.7円・1.63%）</span></li><li><span class="uf-date">2026-10-08予測（2026-10-09向け）</span><span class="uf-name">本田技研工業（7267）</span><span class="uf-entry">参考指値 1,705.4円</span><span class="uf-reason">対象日の安値1,713.5円が参考指値1,705.4円まで下がらず（差8.1円・0.47%）</span></li><li><span class="uf-date">2026-10-07予測（2026-10-08向け）</span><span class="uf-name">楽天グループ（4755）</span><span class="uf-entry">参考指値 634.2円</span><span class="uf-reason">対象日の安値634.7円が参考指値634.2円まで下がらず（差0.5円・0.08%）</span></li><li><span class="uf-date">2026-10-06予測（2026-10-07向け）</span><span class="uf-name">トレンドマイクロ（4704）</span><span class="uf-entry">参考指値 6,927.2円</span><span class="uf-reason">対象日の安値6,931.0円が参考指値6,927.2円まで下がらず（差3.8円・0.05%）</span></li><li><span class="uf-date">2026-10-05予測（2026-10-06向け）</span><span class="uf-name">ＴＤＫ（6762）</span><span class="uf-entry">参考指値 3,403.9円</span><span class="uf-reason">対象日の安値3,441.0円が参考指値3,403.9円まで下がらず（差37.1円・1.09%）</span></li><li><span class="uf-date">2026-10-02予測（2026-10-05向け）</span><span class="uf-name">ＳＵＭＣＯ（3436）</span><span class="uf-entry">参考指値 3,571.1円</span><span class="uf-reason">対象日の安値3,583.0円が参考指値3,571.1円まで下がらず（差11.9円・0.33%）</span></li><li><span class="uf-date">2026-10-01予測（2026-10-02向け）</span><span class="uf-name">アドバンテスト（6857）</span><span class="uf-entry">参考指値 37,183.2円</span><span class="uf-reason">対象日の安値37,310.0円が参考指値37,183.2円まで下がらず（差126.8円・0.34%）</span></li><li><span class="uf-date">2026-10-01予測（2026-10-02向け）</span><span class="uf-name">レーザーテック（6920）</span><span class="uf-entry">参考指値 45,600.8円</span><span class="uf-reason">対象日の安値45,730.0円が参考指値45,600.8円まで下がらず（差129.2円・0.28%）</span></li><li><span class="uf-date">2026-09-29予測（2026-09-30向け）</span><span class="uf-name">ディスコ（6146）</span><span class="uf-entry">参考指値 56,287.2円</span><span class="uf-reason">対象日の安値56,780.0円が参考指値56,287.2円まで下がらず（差492.8円・0.88%）</span></li><li><span class="uf-date">2026-09-29予測（2026-09-30向け）</span><span class="uf-name">ＳＭＣ（6273）</span><span class="uf-entry">参考指値 70,465.9円</span><span class="uf-reason">対象日の安値70,560.0円が参考指値70,465.9円まで下がらず（差94.1円・0.13%）</span></li><li><span class="uf-date">2026-09-29予測（2026-09-30向け）</span><span class="uf-name">オムロン（6645）</span><span class="uf-entry">参考指値 6,324.2円</span><span class="uf-reason">対象日の安値6,372.0円が参考指値6,324.2円まで下がらず（差47.8円・0.76%）</span></li><li><span class="uf-date">2026-09-25予測（2026-09-28向け）</span><span class="uf-name">ふくおかフィナンシャルグループ（8354）</span><span class="uf-entry">参考指値 7,932.1円</span><span class="uf-reason">対象日の安値7,935.0円が参考指値7,932.1円まで下がらず（差2.9円・0.04%）</span></li><li><span class="uf-date">2026-09-25予測（2026-09-28向け）</span><span class="uf-name">三菱ＵＦＪフィナンシャル・グループ（8306）</span><span class="uf-entry">参考指値 3,689.5円</span><span class="uf-reason">対象日の安値3,693.0円が参考指値3,689.5円まで下がらず（差3.5円・0.09%）</span></li><li><span class="uf-date">2026-09-25予測（2026-09-28向け）</span><span class="uf-name">みずほフィナンシャルグループ（8411）</span><span class="uf-entry">参考指値 8,589.8円</span><span class="uf-reason">対象日の安値8,636.0円が参考指値8,589.8円まで下がらず（差46.2円・0.54%）</span></li><li><span class="uf-date">2026-09-17予測（2026-09-18向け）</span><span class="uf-name">中外製薬（4519）</span><span class="uf-entry">参考指値 6,635.7円</span><span class="uf-reason">対象日の安値6,659.0円が参考指値6,635.7円まで下がらず（差23.3円・0.35%）</span></li><li><span class="uf-date">2026-09-16予測（2026-09-17向け）</span><span class="uf-name">アマダ（6113）</span><span class="uf-entry">参考指値 2,390.5円</span><span class="uf-reason">対象日の安値2,415.0円が参考指値2,390.5円まで下がらず（差24.5円・1.02%）</span></li><li><span class="uf-date">2026-09-15予測（2026-09-16向け）</span><span class="uf-name">三菱重工業（7011）</span><span class="uf-entry">参考指値 3,701.4円</span><span class="uf-reason">対象日の安値3,712.0円が参考指値3,701.4円まで下がらず（差10.6円・0.29%）</span></li><li><span class="uf-date">2026-09-15予測（2026-09-16向け）</span><span class="uf-name">東海カーボン（5301）</span><span class="uf-entry">参考指値 1,969.1円</span><span class="uf-reason">対象日の安値2,001.0円が参考指値1,969.1円まで下がらず（差31.9円・1.62%）</span></li><li><span class="uf-date">2026-09-15予測（2026-09-16向け）</span><span class="uf-name">トレンドマイクロ（4704）</span><span class="uf-entry">参考指値 6,259.5円</span><span class="uf-reason">対象日の安値6,334.0円が参考指値6,259.5円まで下がらず（差74.5円・1.19%）</span></li><li><span class="uf-date">2026-09-14予測（2026-09-15向け）</span><span class="uf-name">リクルートホールディングス（6098）</span><span class="uf-entry">参考指値 16,372.7円</span><span class="uf-reason">対象日の安値16,605.0円が参考指値16,372.7円まで下がらず（差232.3円・1.42%）</span></li><li><span class="uf-date">2026-09-11予測（2026-09-14向け）</span><span class="uf-name">シャープ（6753）</span><span class="uf-entry">参考指値 677.2円</span><span class="uf-reason">対象日の安値677.2円が参考指値677.2円まで下がらず（差0.0円・0.00%）</span></li><li><span class="uf-date">2026-09-11予測（2026-09-14向け）</span><span class="uf-name">川崎汽船（9107）</span><span class="uf-entry">参考指値 3,383.0円</span><span class="uf-reason">対象日の安値3,395.0円が参考指値3,383.0円まで下がらず（差12.0円・0.35%）</span></li><li><span class="uf-date">2026-09-11予測（2026-09-14向け）</span><span class="uf-name">ＬＩＮＥヤフー（4689）</span><span class="uf-entry">参考指値 542.5円</span><span class="uf-reason">対象日の安値543.3円が参考指値542.5円まで下がらず（差0.8円・0.15%）</span></li><li><span class="uf-date">2026-09-11予測（2026-09-14向け）</span><span class="uf-name">ＩＮＰＥＸ（1605）</span><span class="uf-entry">参考指値 3,908.4円</span><span class="uf-reason">対象日の安値3,944.0円が参考指値3,908.4円まで下がらず（差35.6円・0.91%）</span></li><li><span class="uf-date">2026-09-08予測（2026-09-09向け）</span><span class="uf-name">ソフトバンクグループ（9984）</span><span class="uf-entry">参考指値 6,525.2円</span><span class="uf-reason">対象日の安値6,560.0円が参考指値6,525.2円まで下がらず（差34.8円・0.53%）</span></li><li><span class="uf-date">2026-09-08予測（2026-09-09向け）</span><span class="uf-name">出光興産（5019）</span><span class="uf-entry">参考指値 1,542.7円</span><span class="uf-reason">対象日の安値1,597.0円が参考指値1,542.7円まで下がらず（差54.3円・3.52%）</span></li><li><span class="uf-date">2026-09-04予測（2026-09-07向け）</span><span class="uf-name">ソフトバンクグループ（9984）</span><span class="uf-entry">参考指値 5,559.1円</span><span class="uf-reason">対象日の安値5,814.0円が参考指値5,559.1円まで下がらず（差254.9円・4.59%）</span></li><li><span class="uf-date">2026-09-04予測（2026-09-07向け）</span><span class="uf-name">イビデン（4062）</span><span class="uf-entry">参考指値 20,238.3円</span><span class="uf-reason">対象日の安値20,930.0円が参考指値20,238.3円まで下がらず（差691.7円・3.42%）</span></li><li><span class="uf-date">2026-09-04予測（2026-09-07向け）</span><span class="uf-name">キオクシアホールディングス（285A）</span><span class="uf-entry">参考指値 54,426.5円</span><span class="uf-reason">対象日の安値57,650.0円が参考指値54,426.5円まで下がらず（差3,223.5円・5.92%）</span></li><li><span class="uf-date">2026-08-31予測（2026-09-01向け）</span><span class="uf-name">関西電力（9503）</span><span class="uf-entry">参考指値 2,795.0円</span><span class="uf-reason">対象日の安値2,798.0円が参考指値2,795.0円まで下がらず（差3.0円・0.11%）</span></li><li><span class="uf-date">2026-08-31予測（2026-09-01向け）</span><span class="uf-name">東海カーボン（5301）</span><span class="uf-entry">参考指値 1,804.9円</span><span class="uf-reason">対象日の安値1,829.0円が参考指値1,804.9円まで下がらず（差24.1円・1.34%）</span></li><li><span class="uf-date">2026-08-28予測（2026-08-31向け）</span><span class="uf-name">三菱自動車工業（7211）</span><span class="uf-entry">参考指値 384.7円</span><span class="uf-reason">対象日の安値385.5円が参考指値384.7円まで下がらず（差0.8円・0.21%）</span></li><li><span class="uf-date">2026-08-27予測（2026-08-28向け）</span><span class="uf-name">協和キリン（4151）</span><span class="uf-entry">参考指値 2,603.9円</span><span class="uf-reason">対象日の安値2,614.0円が参考指値2,603.9円まで下がらず（差10.1円・0.39%）</span></li><li><span class="uf-date">2026-08-21予測（2026-08-24向け）</span><span class="uf-name">三菱マテリアル（5711）</span><span class="uf-entry">参考指値 5,538.2円</span><span class="uf-reason">対象日の安値5,613.0円が参考指値5,538.2円まで下がらず（差74.8円・1.35%）</span></li><li><span class="uf-date">2026-08-21予測（2026-08-24向け）</span><span class="uf-name">川崎汽船（9107）</span><span class="uf-entry">参考指値 3,376.0円</span><span class="uf-reason">対象日の安値3,385.0円が参考指値3,376.0円まで下がらず（差9.0円・0.27%）</span></li></ul></details><div class="card-grid"><details class="card rank1 buy">
 <summary>
 <div class="card-head">
 <span class="rank-badge">1</span>
-<span class="card-name">ヤマハ発動機（7272）</span>
+<span class="card-name">三菱重工業（7011）</span>
 <span class="side-badge buy">買い・スコア4</span>
 </div>
-<p class="card-price">1,640.3円</p>
-<p class="card-reasons">出来高が20日平均の3.20倍 / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+16.7%</span></p>
+<p class="card-price">2,897.9円</p>
+<p class="card-reasons">出来高が20日平均の4.33倍 / 高値圏(0.83)で引け / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+0.2%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値1,760.0円 / 高値1,793.0円 / 安値1,627.0円 / 終値1,648.5円 / 出来高15,208,200株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、安値圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>売りに押された形で、翌日は戻りが鈍い可能性がある。</p></div>
+<div class="card-detail"><p class="day-summary">始値2,775.0円 / 高値2,952.0円 / 安値2,723.5円 / 終値2,912.5円 / 出来高83,370,300株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、高値圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>買いの勢いが翌日に持ち越され、続伸する可能性がある。ただし利益確定売りで寄り付き後に押す場面にも注意。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">2</span>
-<span class="card-name">いすゞ自動車（7202）</span>
+<span class="card-name">ヤマハ発動機（7272）</span>
 <span class="side-badge buy">買い・スコア4</span>
 </div>
-<p class="card-price">2,116.9円</p>
-<p class="card-reasons">出来高が20日平均の3.08倍 / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+2.7%</span></p>
+<p class="card-price">1,659.7円</p>
+<p class="card-reasons">出来高が20日平均の3.74倍 / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+16.7%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値2,107.0円 / 高値2,162.5円 / 安値2,019.0円 / 終値2,127.5円 / 出来高7,805,800株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+<div class="card-detail"><p class="day-summary">始値1,760.0円 / 高値1,793.0円 / 安値1,627.0円 / 終値1,668.0円 / 出来高17,734,100株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">3</span>
-<span class="card-name">ＪＦＥホールディングス（5411）</span>
+<span class="card-name">いすゞ自動車（7202）</span>
 <span class="side-badge buy">買い・スコア4</span>
 </div>
-<p class="card-price">1,739.3円</p>
-<p class="card-reasons">出来高が20日平均の2.44倍 / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+2.4%</span></p>
+<p class="card-price">2,114.4円</p>
+<p class="card-reasons">出来高が20日平均の3.72倍 / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+2.7%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値1,742.5円 / 高値1,772.5円 / 安値1,670.5円 / 終値1,748.0円 / 出来高10,578,300株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+<div class="card-detail"><p class="day-summary">始値2,107.0円 / 高値2,162.5円 / 安値2,019.0円 / 終値2,125.0円 / 出来高9,440,900株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">4</span>
-<span class="card-name">ソニーグループ（6758）</span>
+<span class="card-name">ダイキン工業（6367）</span>
 <span class="side-badge buy">買い・スコア4</span>
 </div>
-<p class="card-price">4,086.5円</p>
-<p class="card-reasons">出来高が20日平均の2.26倍 / 決算発表1営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+4.8%</span></p>
+<p class="card-price">21,681.0円</p>
+<p class="card-reasons">出来高が20日平均の3.16倍 / 当日<span style="color:var(--up)">+1.51%</span> / 決算発表1営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+1.7%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値4,400.0円 / 高値4,450.0円 / 安値4,103.0円 / 終値4,107.0円 / 出来高39,486,500株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、安値圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>売りに押された形で、翌日は戻りが鈍い可能性がある。</p></div>
+<div class="card-detail"><p class="day-summary">始値22,220.0円 / 高値23,080.0円 / 安値21,450.0円 / 終値21,790.0円 / 出来高3,488,800株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">5</span>
-<span class="card-name">住友化学（4005）</span>
+<span class="card-name">ＪＦＥホールディングス（5411）</span>
 <span class="side-badge buy">買い・スコア4</span>
 </div>
-<p class="card-price">472.5円</p>
-<p class="card-reasons">出来高が20日平均の2.25倍 / 決算発表3営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+7.9%</span></p>
+<p class="card-price">1,738.3円</p>
+<p class="card-reasons">出来高が20日平均の2.87倍 / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--up)">+2.4%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値486.4円 / 高値488.8円 / 安値463.7円 / 終値474.9円 / 出来高32,533,400株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
-</details></div><h2 class="side-heading sell">売り候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">25件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">18件（不成立: 7件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">72.2%</span></div></div><div class="card-grid"><details class="card rank1 sell">
+<div class="card-detail"><p class="day-summary">始値1,742.5円 / 高値1,772.5円 / 安値1,670.5円 / 終値1,747.0円 / 出来高12,478,900株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、中間圏で引けた。</p><p class="outlook buy"><span class="outlook-label">明日の見通し</span>方向感は定まっておらず、寄り付きの強弱を見極めたい。</p></div>
+</details></div><h2 class="side-heading sell">売り候補</h2><div class="stat-row"><div class="stat-tile"><span class="cap">答え合わせ済み予測数</span><span class="val">25件</span></div><div class="stat-tile"><span class="cap">指値約定数</span><span class="val">18件（不成立: 7件）</span></div><div class="stat-tile"><span class="cap">的中率（約定分のみ）</span><span class="val">72.2%</span></div></div><details class="unfilled"><summary>不成立 7件の履歴を見る</summary><ul><li><span class="uf-date">2026-11-05予測（2026-11-06向け）</span><span class="uf-name">横河電機（6841）</span><span class="uf-entry">参考指値 4,051.2円</span><span class="uf-reason">対象日の高値4,035.0円が参考指値4,051.2円まで上がらず（差16.2円・0.40%）</span></li><li><span class="uf-date">2026-11-05予測（2026-11-06向け）</span><span class="uf-name">ＡＧＣ（5201）</span><span class="uf-entry">参考指値 4,988.8円</span><span class="uf-reason">対象日の高値4,805.0円が参考指値4,988.8円まで上がらず（差183.8円・3.68%）</span></li><li><span class="uf-date">2026-11-05予測（2026-11-06向け）</span><span class="uf-name">三井化学（4183）</span><span class="uf-entry">参考指値 1,789.4円</span><span class="uf-reason">対象日の高値1,735.5円が参考指値1,789.4円まで上がらず（差53.9円・3.01%）</span></li><li><span class="uf-date">2026-11-05予測（2026-11-06向け）</span><span class="uf-name">三菱重工業（7011）</span><span class="uf-entry">参考指値 3,067.3円</span><span class="uf-reason">対象日の高値2,952.0円が参考指値3,067.3円まで上がらず（差115.3円・3.76%）</span></li><li><span class="uf-date">2026-11-05予測（2026-11-06向け）</span><span class="uf-name">日本郵船（9101）</span><span class="uf-entry">参考指値 7,136.5円</span><span class="uf-reason">対象日の高値6,884.0円が参考指値7,136.5円まで上がらず（差252.5円・3.54%）</span></li><li><span class="uf-date">2026-11-04予測（2026-11-05向け）</span><span class="uf-name">ＳＣＲＥＥＮホールディングス（7735）</span><span class="uf-entry">参考指値 8,979.7円</span><span class="uf-reason">対象日の高値8,710.0円が参考指値8,979.7円まで上がらず（差269.7円・3.00%）</span></li><li><span class="uf-date">2026-11-04予測（2026-11-05向け）</span><span class="uf-name">三井化学（4183）</span><span class="uf-entry">参考指値 1,853.2円</span><span class="uf-reason">対象日の高値1,848.5円が参考指値1,853.2円まで上がらず（差4.7円・0.25%）</span></li></ul></details><div class="card-grid"><details class="card rank1 sell">
 <summary>
 <div class="card-head">
 <span class="rank-badge">1</span>
 <span class="card-name">京成電鉄（9009）</span>
-<span class="side-badge sell">売り・スコア6</span>
+<span class="side-badge sell">売り・スコア7</span>
 </div>
-<p class="card-price">1,414.5円</p>
-<p class="card-reasons">出来高が20日平均の1.95倍 / 当日<span style="color:var(--down)">-5.25%</span> / 安値圏(0.06)で引け / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-3.5%</span></p>
+<p class="card-price">1,409.0円</p>
+<p class="card-reasons">出来高が20日平均の2.45倍 / 当日<span style="color:var(--down)">-5.62%</span> / 安値圏(0.00)で引け / 決算発表0営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-3.5%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値1,458.5円 / 高値1,475.5円 / 安値1,403.5円 / 終値1,407.5円 / 出来高3,679,300株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高がやや増加し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
+<div class="card-detail"><p class="day-summary">始値1,458.5円 / 高値1,475.5円 / 安値1,402.0円 / 終値1,402.0円 / 出来高4,627,800株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">2</span>
-<span class="card-name">ローム（6963）</span>
-<span class="side-badge sell">売り・スコア5</span>
+<span class="card-name">任天堂（7974）</span>
+<span class="side-badge sell">売り・スコア6</span>
 </div>
-<p class="card-price">2,735.1円</p>
-<p class="card-reasons">出来高が20日平均の3.88倍 / 当日<span style="color:var(--down)">-16.16%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-1.2%</span></p>
+<p class="card-price">8,218.9円</p>
+<p class="card-reasons">出来高が20日平均の2.22倍 / 当日<span style="color:var(--down)">-7.91%</span> / 安値圏(0.16)で引け / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-0.4%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値2,566.0円 / 高値2,736.0円 / 安値2,554.5円 / 終値2,721.5円 / 出来高18,698,000株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、高値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>高値圏で引けており、売り方向とは逆行している。翌日の反落の有無を見極めたい。</p></div>
+<div class="card-detail"><p class="day-summary">始値8,130.0円 / 高値8,624.0円 / 安値8,095.0円 / 終値8,178.0円 / 出来高17,393,100株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">3</span>
-<span class="card-name">ヤマハ発動機（7272）</span>
-<span class="side-badge sell">売り・スコア5</span>
+<span class="card-name">エムスリー（2413）</span>
+<span class="side-badge sell">売り・スコア6</span>
 </div>
-<p class="card-price">1,656.7円</p>
-<p class="card-reasons">出来高が20日平均の3.20倍 / 当日<span style="color:var(--down)">-10.41%</span> / 安値圏(0.13)で引け</p>
+<p class="card-price">1,815.5円</p>
+<p class="card-reasons">出来高が20日平均の1.79倍 / 当日<span style="color:var(--down)">-4.75%</span> / 安値圏(0.12)で引け / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-2.3%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値1,760.0円 / 高値1,793.0円 / 安値1,627.0円 / 終値1,648.5円 / 出来高15,208,200株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
+<div class="card-detail"><p class="day-summary">始値1,841.5円 / 高値1,889.5円 / 安値1,795.0円 / 終値1,806.5円 / 出来高6,341,100株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高がやや増加し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">4</span>
-<span class="card-name">王子ホールディングス（3861）</span>
+<span class="card-name">ローム（6963）</span>
 <span class="side-badge sell">売り・スコア5</span>
 </div>
-<p class="card-price">807.6円</p>
-<p class="card-reasons">出来高が20日平均の2.22倍 / 当日<span style="color:var(--down)">-5.55%</span> / 安値圏(0.18)で引け</p>
+<p class="card-price">2,772.8円</p>
+<p class="card-reasons">出来高が20日平均の4.38倍 / 当日<span style="color:var(--down)">-15.00%</span> / 決算発表2営業日後、過去4回の決算後平均ドリフト<span style="color:var(--down)">-1.2%</span></p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値838.9円 / 高値847.6円 / 安値794.1円 / 終値803.6円 / 出来高9,102,500株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
+<div class="card-detail"><p class="day-summary">始値2,566.0円 / 高値2,759.0円 / 安値2,554.5円 / 終値2,759.0円 / 出来高21,082,000株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから上昇して、出来高が急増し、高値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>高値圏で引けており、売り方向とは逆行している。翌日の反落の有無を見極めたい。</p></div>
 </details><details class="card">
 <summary>
 <div class="card-head">
 <span class="rank-badge">5</span>
-<span class="card-name">トヨタ自動車（7203）</span>
+<span class="card-name">コムシスホールディングス（1721）</span>
 <span class="side-badge sell">売り・スコア5</span>
 </div>
-<p class="card-price">3,318.5円</p>
-<p class="card-reasons">出来高が20日平均の2.14倍 / 当日<span style="color:var(--down)">-6.54%</span> / 安値圏(0.12)で引け</p>
+<p class="card-price">4,846.1円</p>
+<p class="card-reasons">出来高が20日平均の2.96倍 / 当日<span style="color:var(--down)">-11.43%</span> / 安値圏(0.08)で引け</p>
 <p class="card-expand-hint">タップで当日の値動きを見る</p>
 </summary>
-<div class="card-detail"><p class="day-summary">始値3,500.0円 / 高値3,501.0円 / 安値3,274.0円 / 終値3,302.0円 / 出来高55,747,300株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
+<div class="card-detail"><p class="day-summary">始値5,344.0円 / 高値5,415.0円 / 安値4,767.0円 / 終値4,822.0円 / 出来高1,628,200株</p><p class="one-point"><span class="one-point-label">ワンポイント:</span>寄り付きから下落して、出来高が急増し、安値圏で引けた。</p><p class="outlook sell"><span class="outlook-label">明日の見通し</span>戻り売りに押される形で、翌日も続落する可能性がある。ただし急反発（リバウンド）にも注意。</p></div>
 </details></div></div>
 <h2>過去のレポート</h2>
 <div class="history-layout">
