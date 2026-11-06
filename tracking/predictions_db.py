@@ -96,6 +96,39 @@ def save_predictions(
         conn.close()
 
 
+def replace_predictions(
+    db_path: str,
+    prediction_date: date,
+    target_date: date,
+    side: Side,
+    candidates: list[RankedCandidate],
+) -> None:
+    """同じ予測日・同じsideの予測を最新の1セットに置き換える（再実行しても二重登録しない）。
+
+    承認済み（2026-11-06）:
+        - その予測日・sideに答え合わせ済みの予測があれば、何も変更しない。
+        - なければ未評価の予測を削除してから登録する（candidatesが空なら削除のみ）。
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        evaluated = conn.execute(
+            "SELECT COUNT(*) FROM predictions "
+            "WHERE prediction_date = ? AND side = ? AND evaluated = 1",
+            (prediction_date.isoformat(), side),
+        ).fetchone()[0]
+        if evaluated > 0:
+            return
+        conn.execute(
+            "DELETE FROM predictions WHERE prediction_date = ? AND side = ? AND evaluated = 0",
+            (prediction_date.isoformat(), side),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    if candidates:
+        save_predictions(db_path, prediction_date, target_date, candidates)
+
+
 @dataclass(frozen=True)
 class PendingPrediction:
     id: int
@@ -134,6 +167,7 @@ def record_evaluation(
     target_low: float,
     target_high: float,
     target_close: float,
+    actual_date: date | None = None,
 ) -> None:
     conn = sqlite3.connect(db_path)
     try:
@@ -154,7 +188,8 @@ def record_evaluation(
             """
             UPDATE predictions
             SET evaluated = 1, filled = ?, target_low = ?, target_high = ?,
-                target_close = ?, result_return = ?, is_win = ?
+                target_close = ?, result_return = ?, is_win = ?,
+                target_date = COALESCE(?, target_date)
             WHERE id = ?
             """,
             (
@@ -164,6 +199,7 @@ def record_evaluation(
                 target_close,
                 result_return,
                 None if is_win is None else int(is_win),
+                None if actual_date is None else actual_date.isoformat(),
                 prediction_id,
             ),
         )

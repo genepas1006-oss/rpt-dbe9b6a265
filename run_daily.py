@@ -14,7 +14,7 @@ from report.generate_report import generate_report
 from report.notify import notify_windows
 from report.publish import publish_docs
 from tracking.evaluate import evaluate_pending_predictions
-from tracking.predictions_db import get_win_rate_stats, init_db, save_predictions
+from tracking.predictions_db import get_win_rate_stats, init_db, replace_predictions
 from tracking.unfilled import get_unfilled_predictions
 
 DB_PATH = "data/predictions.db"
@@ -87,10 +87,8 @@ def run(prediction_date: date) -> Path:
     ranked_sell = rank_candidates(sell_candidates, side="sell")
     target_date = next_business_day(prediction_date)
 
-    if ranked_buy:
-        save_predictions(DB_PATH, prediction_date, target_date, ranked_buy)
-    if ranked_sell:
-        save_predictions(DB_PATH, prediction_date, target_date, ranked_sell)
+    replace_predictions(DB_PATH, prediction_date, target_date, "buy", ranked_buy)
+    replace_predictions(DB_PATH, prediction_date, target_date, "sell", ranked_sell)
 
     buy_stats = get_win_rate_stats(DB_PATH, side="buy")
     sell_stats = get_win_rate_stats(DB_PATH, side="sell")
