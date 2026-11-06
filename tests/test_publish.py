@@ -129,6 +129,7 @@ def test_git_output_is_decoded_as_utf8_regardless_of_locale(tmp_path, monkeypatc
     _, pc, _ = _setup(tmp_path)
     (pc / "docs" / "index.html").write_text("v1", encoding="utf-8")
 
+    seen.clear()  # 準備用のgit呼び出しは除き、publish_docs内の呼び出しだけを見る
     publish_docs(pc, "docs: 不成立履歴UIの更新")
 
     assert seen and all(s == ("utf-8", "replace") for s in seen)
