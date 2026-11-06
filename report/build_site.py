@@ -27,39 +27,62 @@ PAGE_TITLE = "日本株デイクローズ・リサーチ"
 
 _STYLE = """
 :root {
-  --bg: #fafafa; --surface: #ffffff; --surface-2: #f2f1ee;
-  --text: #1a1a1a; --text-muted: #666666; --border: #dddddd;
+  --bg: #f4f3ef; --surface: #ffffff; --surface-2: #f2f1ed;
+  --text: #1c1d21; --text-muted: #6b6e76; --border: #e3e1da;
+  --ink: #23283a; --accent: #3b4a7a;
   --up: #c0392b; --down: #1e8449;
-  --buy-bg: #fbeae7; --buy-text: #9c2b1c;
-  --sell-bg: #e8f3ec; --sell-text: #1b5e3a;
+  --buy: #d4483b; --buy-bg: #fdecea; --buy-text: #a93226;
+  --sell: #239a5b; --sell-bg: #e6f4ec; --sell-text: #1b6b40;
+  --shadow: 0 1px 2px rgba(20,24,40,.06), 0 4px 14px rgba(20,24,40,.05);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #121212; --surface: #1c1c1c; --surface-2: #242424;
-    --text: #eaeaea; --text-muted: #9a9a9a; --border: #333333;
+    --bg: #0e1013; --surface: #171a1f; --surface-2: #1f2329;
+    --text: #e9eaee; --text-muted: #9a9ea8; --border: #2a2e36;
+    --ink: #e9eaee; --accent: #8fa2e8;
     --up: #ff7b72; --down: #56d364;
-    --buy-bg: #3a1f1c; --buy-text: #ff9e95;
-    --sell-bg: #16301f; --sell-text: #7ee2a0;
+    --buy: #ff6b5e; --buy-bg: #3a1f1c; --buy-text: #ff9e95;
+    --sell: #3fcf7f; --sell-bg: #16301f; --sell-text: #7ee2a0;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
   }
 }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-       max-width: 880px; margin: 0 auto; padding: 16px; line-height: 1.6;
-       color: var(--text); background: var(--bg); }
-h1 { font-size: 1.4rem; margin-bottom: 4px; }
-h2 { font-size: 1.05rem; margin: 1.4em 0 0.6em; }
-h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; color: var(--text-muted); }
-.updated { color: var(--text-muted); font-size: 0.85rem; margin-top: 0; }
-.latest { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-          padding: 12px 16px; margin: 16px 0; }
-.disclaimer { color: var(--text-muted); font-size: 0.85rem; }
-.side-heading { font-size: 0.95rem; font-weight: bold; margin: 1em 0 0.5em;
-                padding: 2px 10px; border-radius: 6px; display: inline-block; }
-.side-heading.buy { background: var(--buy-bg); color: var(--buy-text); }
-.side-heading.sell { background: var(--sell-bg); color: var(--sell-text); }
-.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-.stat-tile { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
-.stat-tile .cap { font-size: 0.75rem; color: var(--text-muted); display: block; }
-.stat-tile .val { font-size: 1.05rem; font-weight: bold; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Segoe UI", sans-serif;
+       max-width: 1040px; margin: 0 auto; padding: 0 16px 48px; line-height: 1.6;
+       color: var(--text); background: var(--bg); font-variant-numeric: tabular-nums; }
+.hero { padding: 28px 4px 18px; }
+.hero .eyebrow { font-size: 0.7rem; letter-spacing: .18em; color: var(--accent); font-weight: bold; margin: 0 0 6px; }
+.hero h1 { font-size: 1.4rem; line-height: 1.25; margin: 0; color: var(--ink); letter-spacing: .01em; }
+.hero .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.pill { font-size: 0.78rem; padding: 4px 11px; border-radius: 999px; background: var(--surface);
+        border: 1px solid var(--border); color: var(--text-muted); box-shadow: var(--shadow); }
+.pill b { color: var(--text); font-weight: 700; margin-left: 4px; }
+.disclaimer { margin: 14px 0 0; padding: 10px 14px; font-size: 0.78rem; line-height: 1.55; color: var(--text-muted);
+              background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; }
+h2.section-title { font-size: 1.05rem; margin: 34px 4px 12px; color: var(--ink); }
+h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
+.seg-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; padding: 10px 0; margin: 4px 0 8px;
+           background: linear-gradient(var(--bg) 78%, transparent); }
+.seg-nav a { flex: 1; text-align: center; text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 9px 0;
+             border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.seg-nav a.buy { color: var(--buy-text); } .seg-nav a.sell { color: var(--sell-text); }
+.sides { display: grid; gap: 22px; }
+.side { scroll-margin-top: 64px; }
+.side-head { display: flex; align-items: center; gap: 10px; margin: 6px 2px 12px; }
+.side-title { font-size: 1.15rem; font-weight: 800; margin: 0; }
+.side.buy .side-title { color: var(--buy-text); } .side.sell .side-title { color: var(--sell-text); }
+.side-head::before { content: ""; width: 5px; height: 22px; border-radius: 3px; }
+.side.buy .side-head::before { background: var(--buy); } .side.sell .side-head::before { background: var(--sell); }
+.side-sub { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); }
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow); }
+.stat-tile.feature { grid-column: 1 / -1; }
+.stat-tile .cap { font-size: 0.72rem; color: var(--text-muted); display: block; }
+.stat-tile .val { font-size: 1.35rem; font-weight: 800; line-height: 1.25; color: var(--ink); }
+.stat-tile .sub { display: inline-block; white-space: nowrap; font-size: 0.78rem; font-weight: normal; color: var(--text-muted); margin-left: 4px; }
+.stat-tile .bar { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 8px; overflow: hidden; }
+.stat-tile .bar > i { display: block; height: 100%; border-radius: 3px; }
+.side.buy .bar > i { background: var(--buy); } .side.sell .bar > i { background: var(--sell); }
 .unfilled { margin: 0 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 .unfilled > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px;
                       cursor: pointer; padding: 10px 12px; font-size: 0.95rem; font-weight: bold; list-style: none; }
@@ -83,49 +106,66 @@ h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; color: var(--text-muted); }
 .unfilled .uf-compare .uf-lbl { color: var(--text-muted); font-size: 0.75rem; margin-right: 2px; }
 .unfilled .uf-note { margin-top: 2px; font-size: 0.8rem; color: var(--text-muted); }
 .card-grid { display: grid; gap: 10px; margin-bottom: 1em; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
-.card.rank1.buy { border-color: var(--buy-text); border-width: 2px; }
-.card.rank1.sell { border-color: var(--sell-text); border-width: 2px; }
-.card > summary { list-style: none; cursor: pointer; padding: 10px 14px; font-weight: normal; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
+        transition: transform .12s ease, box-shadow .12s ease; }
+.card:hover { transform: translateY(-1px); }
+.card.rank1.buy { border-color: var(--buy); box-shadow: 0 0 0 1px var(--buy), var(--shadow); }
+.card.rank1.sell { border-color: var(--sell); box-shadow: 0 0 0 1px var(--sell), var(--shadow); }
+.card > summary { list-style: none; cursor: pointer; padding: 12px 14px; font-weight: normal; }
 .card > summary::-webkit-details-marker { display: none; }
-.card-head { display: flex; align-items: center; gap: 8px; }
-.rank-badge { width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2);
-              color: var(--text-muted); font-size: 0.75rem; font-weight: bold;
+.card-head { display: flex; align-items: center; gap: 10px; }
+.rank-badge { width: 26px; height: 26px; border-radius: 8px; background: var(--surface-2);
+              color: var(--text-muted); font-size: 0.82rem; font-weight: 800;
               display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.card-name { font-weight: bold; font-size: 0.95rem; }
-.side-badge { margin-left: auto; font-size: 0.7rem; padding: 2px 8px; border-radius: 6px;
-              font-weight: bold; white-space: nowrap; }
+.card.rank1.buy .rank-badge { background: var(--buy); color: #fff; }
+.card.rank1.sell .rank-badge { background: var(--sell); color: #fff; }
+.card-name { font-weight: 700; font-size: 0.97rem; line-height: 1.35; }
+.side-badge { margin-left: auto; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px;
+              font-weight: 800; white-space: nowrap; }
 .side-badge.buy { background: var(--buy-bg); color: var(--buy-text); }
 .side-badge.sell { background: var(--sell-bg); color: var(--sell-text); }
-.card-price { font-size: 1.2rem; font-weight: bold; margin: 6px 0 2px; }
-.card-reasons { font-size: 0.85rem; color: var(--text-muted); margin: 0; font-weight: normal; }
-.card-expand-hint { font-size: 0.75rem; color: var(--text-muted); margin: 6px 0 0; }
-.card-detail { border-top: 1px solid var(--border); padding: 10px 14px 12px; font-size: 0.85rem; }
-.card-detail .day-summary { color: var(--text-muted); margin: 0 0 6px; }
+.card-price { margin: 8px 0 6px; font-size: 1.45rem; font-weight: 800; color: var(--ink); line-height: 1.2; }
+.card-price::before { content: "参考指値"; display: block; font-size: 0.68rem; font-weight: normal; color: var(--text-muted); letter-spacing: .04em; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
+.chip { font-size: 0.74rem; line-height: 1.35; padding: 3px 9px; border-radius: 999px; background: var(--surface-2);
+        color: var(--text-muted); border: 1px solid var(--border); }
+.card-expand-hint { font-size: 0.72rem; color: var(--text-muted); margin: 8px 0 0; display: flex; align-items: center; gap: 4px; }
+.card-expand-hint::after { content: "▾"; transition: transform .15s; }
+.card[open] .card-expand-hint::after { transform: rotate(180deg); }
+.card-detail { border-top: 1px dashed var(--border); padding: 12px 14px 14px; font-size: 0.85rem; }
+.card-detail .day-summary { color: var(--text-muted); margin: 0 0 8px; }
 .card-detail .one-point { margin: 0; }
 .card-detail .one-point-label { font-weight: bold; margin-right: 4px; }
-.card-detail .outlook { margin: 8px 0 0; padding: 8px 10px; border-left: 4px solid var(--up); background: rgba(128,128,128,.10); border-radius: 4px; }
+.card-detail .outlook { margin: 10px 0 0; padding: 9px 12px; border-left: 4px solid var(--up); background: var(--surface-2); border-radius: 6px; }
 .card-detail .outlook.sell { border-left-color: var(--down); }
-.card-detail .outlook-label { display: block; font-weight: bold; font-size: .85em; margin-bottom: 2px; }
-.empty-msg { color: var(--text-muted); font-size: 0.9rem; }
+.card-detail .outlook-label { display: block; font-weight: bold; font-size: .82em; margin-bottom: 2px; }
+.empty-msg { color: var(--text-muted); font-size: 0.9rem; padding: 14px; background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; }
 .history-layout { display: flex; gap: 20px; align-items: flex-start; }
-.history-nav { flex: 0 0 130px; position: sticky; top: 12px; display: flex;
-               flex-direction: column; gap: 4px; }
-.history-nav a { font-size: 0.85rem; color: var(--text); text-decoration: none;
-                  padding: 4px 8px; border-radius: 6px; }
-.history-nav a:hover { background: var(--surface-2); }
+.history-nav { flex: 0 0 120px; position: sticky; top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.history-nav a { font-size: 0.85rem; color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
+.history-nav a:hover { background: var(--surface); }
 .history-content { flex: 1; min-width: 0; }
 .month-section { margin-bottom: 1.2em; }
-details.day { margin: 8px 0; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; }
-details.day > summary { cursor: pointer; font-weight: bold; }
-details.day > .latest { border: none; padding: 0; margin: 8px 0 0; }
+details.day { margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; background: var(--surface); box-shadow: var(--shadow); }
+details.day > summary { cursor: pointer; font-weight: 700; }
+details.day > .report { margin: 12px 0 0; }
+@media (min-width: 860px) {
+  .sides { grid-template-columns: 1fr 1fr; align-items: start; }
+  .seg-nav { display: none; }
+  .hero h1 { font-size: 2rem; }
+}
+@media (min-width: 420px) {
+  .hero h1 { font-size: 1.65rem; }
+}
 @media (max-width: 640px) {
   .history-layout { flex-direction: column; }
-  .history-nav { flex-direction: row; overflow-x: auto; position: static;
-                 width: 100%; padding-bottom: 6px; gap: 6px; }
-  .history-nav a { flex: 0 0 auto; border: 1px solid var(--border); white-space: nowrap; }
+  .history-nav { flex-direction: row; overflow-x: auto; position: static; width: 100%; padding-bottom: 6px; gap: 6px; }
+  .history-nav a { flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); white-space: nowrap; }
 }
 """
+
+
+_PCT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 
 
 def _stat_row(lines: list[str]) -> str:
@@ -135,11 +175,26 @@ def _stat_row(lines: list[str]) -> str:
             cap, val = line.split(":", 1)
         else:
             cap, val = "", line
-        tiles.append(
-            f'<div class="stat-tile"><span class="cap">{html.escape(cap.strip())}</span>'
-            f'<span class="val">{color_deltas(html.escape(val.strip()))}</span></div>'
+        cap, val = cap.strip(), val.strip()
+        main, sub = val, ""
+        if "（" in val:
+            main, rest = val.split("（", 1)
+            sub = "（" + rest
+        bar = ""
+        feature = ""
+        pct = _PCT_RE.search(val) if "的中率" in cap else None
+        if pct:
+            feature = " feature"
+            width = max(0.0, min(100.0, float(pct.group(1))))
+            bar = f'<div class="bar"><i style="width:{width:.1f}%"></i></div>'
+        sub_html = f'<span class="sub">{html.escape(sub)}</span>' if sub else ""
+        tile = (
+            f'<div class="stat-tile{feature}"><span class="cap">{html.escape(cap)}</span>'
+            f'<span class="val">{color_deltas(html.escape(main.strip()))}{sub_html}</span>{bar}</div>'
         )
-    return f'<div class="stat-row">{"".join(tiles)}</div>'
+        tiles.append((0 if feature else 1, tile))
+    tiles.sort(key=lambda t: t[0])  # 的中率を先頭の大きなタイルにする
+    return f'<div class="stat-row">{"".join(t for _, t in tiles)}</div>'
 
 
 def _candidate_card(c: ParsedCandidate, side: str) -> str:
@@ -147,8 +202,10 @@ def _candidate_card(c: ParsedCandidate, side: str) -> str:
     side_label = "買い" if side == "buy" else "売り"
     reasons_html = ""
     if c.reasons:
-        reasons_text = " / ".join(color_deltas(html.escape(r)) for r in c.reasons)
-        reasons_html = f'<p class="card-reasons">{reasons_text}</p>'
+        chips = "".join(
+            f'<span class="chip">{color_deltas(html.escape(r))}</span>' for r in c.reasons
+        )
+        reasons_html = f'<p class="chips">{chips}</p>'
 
     detail_html = ""
     expand_hint_html = ""
@@ -253,8 +310,11 @@ def _side_section(
     stats_lines: list[str],
     candidates: list[ParsedCandidate],
     unfilled: list[ParsedUnfilled] | None = None,
+    anchor: bool = False,
 ) -> str:
-    parts = [f'<h2 class="side-heading {side}">{heading}</h2>']
+    sub = f"TOP{len(candidates)}" if candidates else ""
+    sub_html = f'<span class="side-sub">{sub}</span>' if sub else ""
+    parts = [f'<div class="side-head"><h2 class="side-title">{heading}</h2>{sub_html}</div>']
     if stats_lines:
         parts.append(_stat_row(stats_lines))
     parts.append(_unfilled_block(unfilled or []))
@@ -263,14 +323,25 @@ def _side_section(
         parts.append(f'<div class="card-grid">{cards}</div>')
     else:
         parts.append('<p class="empty-msg">本日は基準を満たす候補がありませんでした。</p>')
-    return "".join(parts)
+    id_attr = f' id="side-{side}"' if anchor else ""
+    return f'<section class="side {side}"{id_attr}>{"".join(parts)}</section>'
 
 
-def _render_report(parsed: ParsedReport) -> str:
-    out = _side_section("買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled)
+def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
+    sections = _side_section(
+        "買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled, latest
+    )
+    nav = ""
     if parsed.has_sell_section:
-        out += _side_section("売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates, parsed.sell_unfilled)
-    return out
+        sections += _side_section(
+            "売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates, parsed.sell_unfilled, latest
+        )
+        if latest:
+            nav = (
+                '<nav class="seg-nav"><a class="buy" href="#side-buy">買い候補</a>'
+                '<a class="sell" href="#side-sell">売り候補</a></nav>'
+            )
+    return f'{nav}<div class="sides">{sections}</div>'
 
 
 def _month_label(year_month: str) -> str:
@@ -288,14 +359,14 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
 
     for i, path in enumerate(report_files):
         parsed = parse_report(path.read_text(encoding="utf-8"))
-        body = _render_report(parsed)
+        body = _render_report(parsed, latest=(i == 0))
         if i == 0:
-            latest_html = f'<div class="latest">{body}</div>'
+            latest_html = f'<div class="report latest">{body}</div>'
         else:
             year_month = path.stem[:7]
             history_by_month[year_month].append(
                 f'<details class="day"><summary>{path.stem}</summary>'
-                f'<div class="latest">{body}</div></details>'
+                f'<div class="report">{body}</div></details>'
             )
 
     if not report_files:
@@ -317,6 +388,12 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
 <div class="history-content">{month_sections}</div>
 </div>"""
 
+    latest_pill = (
+        f'<span class="pill">最新レポート<b>{html.escape(report_files[0].stem)}</b></span>'
+        if report_files
+        else ""
+    )
+
     page = f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -326,11 +403,14 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
 <style>{_STYLE}</style>
 </head>
 <body>
+<header class="hero">
+<p class="eyebrow">DAY-CLOSE RESEARCH</p>
 <h1>{PAGE_TITLE}</h1>
-<p class="updated">最終更新: {html.escape(generated_at)}</p>
+<div class="meta">{latest_pill}<span class="pill">最終更新<b>{html.escape(generated_at)}</b></span></div>
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
+</header>
 {latest_html}
-<h2>過去のレポート</h2>
+<h2 class="section-title">過去のレポート</h2>
 {history_section}
 </body>
 </html>

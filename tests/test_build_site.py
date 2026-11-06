@@ -70,7 +70,7 @@ def test_history_entries_are_collapsed(tmp_path):
     html_text = index_path.read_text(encoding="utf-8")
 
     assert '<details class="day"><summary>2026-10-25</summary>' in html_text
-    assert "2026-10-25" not in html_text.split("<h2>過去のレポート</h2>")[0]
+    assert "2026-10-25" not in html_text.split("<h2 class=\"section-title\">過去のレポート</h2>")[0]
 
 
 def test_history_is_grouped_by_month_with_sidebar_links(tmp_path):
