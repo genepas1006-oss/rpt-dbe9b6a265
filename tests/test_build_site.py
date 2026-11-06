@@ -138,7 +138,10 @@ def test_unfilled_history_button_and_reasons(tmp_path):
 
     html_text = build_index(reports_dir, docs_dir, "t").read_text(encoding="utf-8")
 
-    assert "不成立 1件の履歴を見る" in html_text
+    assert '<span class="uf-count">1件</span>' in html_text
     assert "横河電機" in html_text
     assert "対象日の高値4,040.0円が参考指値4,051.2円まで上がらず（差11.2円・0.28%）" in html_text
-    assert html_text.count("履歴を見る") == 1  # 買いは不成立なしのためボタンなし
+    assert "あと0.28%" in html_text
+    assert "当日の高値</span>4,040.0円" in html_text
+    assert "2026-10-27 予測 → 10/28 向け" in html_text
+    assert html_text.count('class="uf-count"') == 1  # 買いは不成立なしのため非表示

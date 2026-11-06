@@ -16,6 +16,7 @@ GitHub Pagesで公開することを想定し、外部サービス・ログイ�
 """
 
 import html
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -59,15 +60,28 @@ h3 { font-size: 0.95rem; margin: 1.2em 0 0.4em; color: var(--text-muted); }
 .stat-tile { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
 .stat-tile .cap { font-size: 0.75rem; color: var(--text-muted); display: block; }
 .stat-tile .val { font-size: 1.05rem; font-weight: bold; }
-.unfilled { margin: 0 0 12px; }
-.unfilled > summary { display: inline-block; cursor: pointer; padding: 6px 12px; border: 1px solid var(--border);
-                      border-radius: 6px; background: var(--surface-2); font-size: 0.9rem; }
-.unfilled ul { list-style: none; margin: 8px 0 0; padding: 0; max-height: 420px; overflow-y: auto; }
-.unfilled li { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; font-size: 0.9rem; }
-.unfilled li span { display: block; }
-.unfilled .uf-date { font-size: 0.75rem; color: var(--text-muted); }
-.unfilled .uf-name { font-weight: bold; }
-.unfilled .uf-reason { margin-top: 2px; }
+.unfilled { margin: 0 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.unfilled > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                      cursor: pointer; padding: 10px 12px; font-size: 0.95rem; font-weight: bold; list-style: none; }
+.unfilled > summary::-webkit-details-marker { display: none; }
+.unfilled > summary::after { content: "▾"; color: var(--text-muted); transition: transform .15s; }
+.unfilled[open] > summary::after { transform: rotate(180deg); }
+.unfilled .uf-count { margin-left: auto; font-weight: normal; color: var(--text-muted); font-size: 0.85rem; }
+.unfilled .uf-help { margin: 0; padding: 0 12px 10px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+.unfilled .uf-list { max-height: 480px; overflow-y: auto; border-top: 1px solid var(--border); }
+.unfilled .uf-group-head { position: sticky; top: 0; z-index: 1; margin: 0; padding: 6px 12px; font-size: 0.78rem;
+                           font-weight: bold; color: var(--text-muted); background: var(--surface-2);
+                           border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+.unfilled .uf-row { padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.unfilled .uf-row:last-child { border-bottom: 0; }
+.unfilled .uf-main { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.unfilled .uf-name { font-weight: bold; font-size: 0.95rem; }
+.unfilled .uf-gap { flex: none; font-size: 0.8rem; font-weight: bold; padding: 2px 8px; border-radius: 999px;
+                    background: var(--surface-2); border: 1px solid var(--border); white-space: nowrap; }
+.unfilled .uf-compare { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; font-size: 0.85rem; }
+.unfilled .uf-compare .uf-arrow { color: var(--text-muted); }
+.unfilled .uf-compare .uf-lbl { color: var(--text-muted); font-size: 0.75rem; margin-right: 2px; }
+.unfilled .uf-note { margin-top: 2px; font-size: 0.8rem; color: var(--text-muted); }
 .card-grid { display: grid; gap: 10px; margin-bottom: 1em; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .card.rank1.buy { border-color: var(--buy-text); border-width: 2px; }
@@ -176,20 +190,60 @@ def _candidate_card(c: ParsedCandidate, side: str) -> str:
 </details>"""
 
 
+_REASON_RE = re.compile(
+    r"対象日の(安値|高値)([\d,.]+)円が参考指値([\d,.]+)円まで(?:下がらず|上がらず)"
+    r"（差([\d,.]+)円・([\d.]+)%）"
+)
+
+
+def _short_date(iso: str) -> str:
+    """2026-11-05 -> 11/05"""
+    return iso[5:].replace("-", "/")
+
+
+def _unfilled_row(u: ParsedUnfilled) -> str:
+    m = _REASON_RE.search(u.reason)
+    if m:
+        kind, extreme, entry, gap_yen, gap_pct = m.groups()
+        verb = "下がらず" if kind == "安値" else "上がらず"
+        compare = (
+            f'<div class="uf-compare"><span><span class="uf-lbl">参考指値</span>{entry}円</span>'
+            f'<span class="uf-arrow">⇄</span>'
+            f'<span><span class="uf-lbl">当日の{kind}</span>{extreme}円</span></div>'
+        )
+        gap_badge = f'<span class="uf-gap">あと{gap_pct}%</span>'
+        note = f'<div class="uf-note">指値まで{gap_yen}円{verb}（届かず不成立）</div>'
+    else:  # 想定外の文面は理由をそのまま表示する
+        compare = f'<div class="uf-compare"><span>参考指値 {html.escape(u.entry_price)}</span></div>'
+        gap_badge = ""
+        note = f'<div class="uf-note">{html.escape(u.reason)}</div>'
+    return (
+        f'<div class="uf-row" title="{html.escape(u.reason, quote=True)}">'
+        f'<div class="uf-main"><span class="uf-name">{html.escape(u.name)}</span>{gap_badge}</div>'
+        f"{compare}{note}</div>"
+    )
+
+
 def _unfilled_block(items: list[ParsedUnfilled]) -> str:
     if not items:
         return ""
-    rows = "".join(
-        f'<li><span class="uf-date">{html.escape(u.prediction_date)}予測'
-        f"（{html.escape(u.target_date)}向け）</span>"
-        f'<span class="uf-name">{html.escape(u.name)}</span>'
-        f'<span class="uf-entry">参考指値 {html.escape(u.entry_price)}</span>'
-        f'<span class="uf-reason">{html.escape(u.reason)}</span></li>'
-        for u in items
+    groups: dict[tuple[str, str], list[ParsedUnfilled]] = {}
+    for u in items:  # 入力は新しい予測日順なので、挿入順がそのまま新しい順になる
+        groups.setdefault((u.prediction_date, u.target_date), []).append(u)
+    body = "".join(
+        f'<section class="uf-group"><h4 class="uf-group-head">'
+        f"<span>{html.escape(pd)} 予測 → {html.escape(_short_date(td))} 向け</span>"
+        f"<span>{len(rows)}件</span></h4>"
+        f'{"".join(_unfilled_row(u) for u in rows)}</section>'
+        for (pd, td), rows in groups.items()
     )
     return (
-        f'<details class="unfilled"><summary>不成立 {len(items)}件の履歴を見る</summary>'
-        f"<ul>{rows}</ul></details>"
+        f'<details class="unfilled"><summary><span>不成立の履歴</span>'
+        f'<span class="uf-count">{len(items)}件</span></summary>'
+        f'<p class="uf-help">参考指値で約定しなかった予測の一覧です。'
+        f"買いは当日の安値が指値まで下がらなかったとき、売りは当日の高値が指値まで上がらなかったときに不成立になります。"
+        f"「あと◯%」は、指値に届くまでの差（指値比）です。</p>"
+        f'<div class="uf-list">{body}</div></details>'
     )
 
 
