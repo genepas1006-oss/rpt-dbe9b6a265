@@ -31,6 +31,9 @@ def publish_docs(repo_root: Path, commit_message: str) -> PublishResult:
             cwd=repo_root,
             capture_output=True,
             text=True,
+            # Windowsの既定(cp932)だとgitのUTF-8出力を読めず落ちることがあるため固定する
+            encoding="utf-8",
+            errors="replace",
         )
 
     add_result = run("add", "docs")

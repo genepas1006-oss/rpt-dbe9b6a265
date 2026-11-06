@@ -111,3 +111,24 @@ def test_unreachable_remote_returns_failed_instead_of_raising(tmp_path, monkeypa
 
     assert result.status == "failed"
     assert not result.ok
+
+
+def test_git_output_is_decoded_as_utf8_regardless_of_locale(tmp_path, monkeypatch):
+    """Windows(cp932)でgitのUTF-8出力を読めず落ちた不具合の再発防止。"""
+    import report.publish as publish_module
+
+    seen = []
+    real_run = subprocess.run
+
+    def spy(*args, **kwargs):
+        seen.append((kwargs.get("encoding"), kwargs.get("errors")))
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(publish_module.subprocess, "run", spy)
+    _env_user(monkeypatch)
+    _, pc, _ = _setup(tmp_path)
+    (pc / "docs" / "index.html").write_text("v1", encoding="utf-8")
+
+    publish_docs(pc, "docs: 不成立履歴UIの更新")
+
+    assert seen and all(s == ("utf-8", "replace") for s in seen)
