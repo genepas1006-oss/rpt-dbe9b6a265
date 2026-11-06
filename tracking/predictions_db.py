@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from analysis.scoring import RankedCandidate, Side
+from tracking.trade_eval import evaluate_trade
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS predictions (
@@ -176,13 +177,8 @@ def record_evaluation(
         ).fetchone()
         entry_price, side = row
 
-        if side == "sell":
-            filled = target_high >= entry_price
-            result_return = (entry_price - target_close) / entry_price if filled else None
-        else:
-            filled = target_low <= entry_price
-            result_return = (target_close - entry_price) / entry_price if filled else None
-        is_win = result_return > 0 if filled else None
+        result = evaluate_trade(side, entry_price, target_low, target_high, target_close)
+        filled, result_return, is_win = result.filled, result.result_return, result.is_win
 
         conn.execute(
             """

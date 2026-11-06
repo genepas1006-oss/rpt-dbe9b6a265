@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 
 class YFinanceSource(DataSource):
     def get_daily_bars(self, code: str, start: date, end: date) -> list[DailyBar]:
-        symbol = yfinance_symbol(code)
+        return self.get_symbol_bars(yfinance_symbol(code), start, end)
+
+    def get_symbol_bars(self, symbol: str, start: date, end: date) -> list[DailyBar]:
+        """yfinanceシンボル（例: "7203.T", 指数なら "^N225"）で日次バーを取得する。"""
         try:
             # yfinanceのhistory()はend未満を返すため、end当日を含めるには+1日する。
             hist = yf.Ticker(symbol).history(
