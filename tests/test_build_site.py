@@ -69,8 +69,9 @@ def test_history_entries_are_collapsed(tmp_path):
     index_path = build_index(reports_dir, docs_dir, "2026-10-26 16:00")
     html_text = index_path.read_text(encoding="utf-8")
 
-    assert '<details class="day"><summary>2026-10-25</summary>' in html_text
-    assert "2026-10-25" not in html_text.split("<h2 class=\"section-title\">過去のレポート</h2>")[0]
+    assert '<details class="day-row" name="history"><summary>' in html_text
+    assert '<span class="d-date">10/25<small>2026 日</small></span>' in html_text
+    assert "10/25" not in html_text.split('<div class="history-head">')[0]
 
 
 def test_history_is_grouped_by_month_with_sidebar_links(tmp_path):
@@ -84,8 +85,8 @@ def test_history_is_grouped_by_month_with_sidebar_links(tmp_path):
     index_path = build_index(reports_dir, docs_dir, "2026-10-26 16:00")
     html_text = index_path.read_text(encoding="utf-8")
 
-    assert '<a href="#m-2026-10">2026年10月</a>' in html_text
-    assert '<a href="#m-2026-09">2026年9月</a>' in html_text
+    assert 'href="#m-2026-10" data-month="2026-10">2026年10月</a>' in html_text
+    assert 'href="#m-2026-09" data-month="2026-09">2026年9月</a>' in html_text
     assert 'id="m-2026-10"' in html_text
     assert 'id="m-2026-09"' in html_text
     # 新しい月が先に来る

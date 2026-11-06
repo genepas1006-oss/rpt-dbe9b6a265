@@ -140,15 +140,38 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .card-detail .outlook.sell { border-left-color: var(--down); }
 .card-detail .outlook-label { display: block; font-weight: bold; font-size: .82em; margin-bottom: 2px; }
 .empty-msg { color: var(--text-muted); font-size: 0.9rem; padding: 14px; background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; }
-.history-layout { display: flex; gap: 20px; align-items: flex-start; }
-.history-nav { flex: 0 0 120px; position: sticky; top: 12px; display: flex; flex-direction: column; gap: 4px; }
-.history-nav a { font-size: 0.85rem; color: var(--text); text-decoration: none; padding: 6px 10px; border-radius: 8px; }
-.history-nav a:hover { background: var(--surface); }
-.history-content { flex: 1; min-width: 0; }
-.month-section { margin-bottom: 1.2em; }
-details.day { margin: 8px 0; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; background: var(--surface); box-shadow: var(--shadow); }
-details.day > summary { cursor: pointer; font-weight: 700; }
-details.day > .report { margin: 12px 0 0; }
+.history-head { display: flex; align-items: baseline; justify-content: space-between; margin: 34px 4px 10px; }
+.history-head .section-title { margin: 0; }
+.history-head .count { font-size: 0.78rem; color: var(--text-muted); }
+.month-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: none; }
+.month-tabs::-webkit-scrollbar { display: none; }
+.month-tabs a { flex: 0 0 auto; font-size: 0.85rem; font-weight: 700; text-decoration: none; padding: 7px 14px; border-radius: 999px;
+                border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
+.month-tabs a.active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.js .month-panel { display: none; }
+.js .month-panel.active { display: block; }
+.month-label { font-size: 0.85rem; color: var(--text-muted); margin: 14px 4px 8px; }
+.js .month-label { display: none; }
+.day-list { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+details.day-row { border-bottom: 1px solid var(--border); }
+details.day-row:last-child { border-bottom: 0; }
+details.day-row > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 64px 1fr 16px; align-items: center;
+                            gap: 10px; padding: 11px 14px; }
+details.day-row > summary::-webkit-details-marker { display: none; }
+details.day-row > summary::after { content: "▾"; color: var(--text-muted); font-size: 0.8rem; transition: transform .15s; }
+details.day-row[open] > summary::after { transform: rotate(180deg); }
+details.day-row[open] > summary { background: var(--surface-2); }
+details.day-row > summary:hover { background: var(--surface-2); }
+.d-date { font-weight: 800; font-size: 1rem; color: var(--ink); line-height: 1.2; }
+.d-date small { display: block; font-size: 0.68rem; font-weight: normal; color: var(--text-muted); }
+.d-picks { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 0.82rem; }
+.pk { display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk i { flex: none; font-style: normal; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; }
+.pk.buy i { background: var(--buy-bg); color: var(--buy-text); }
+.pk.sell i { background: var(--sell-bg); color: var(--sell-text); }
+.pk em { font-style: normal; color: var(--text-muted); font-size: 0.74rem; }
+.pk.none { color: var(--text-muted); }
+details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1px solid var(--border); }
 @media (min-width: 860px) {
   .sides { grid-template-columns: 1fr 1fr; align-items: start; }
   .seg-nav { display: none; }
@@ -156,11 +179,6 @@ details.day > .report { margin: 12px 0 0; }
 }
 @media (min-width: 420px) {
   .hero h1 { font-size: 1.65rem; }
-}
-@media (max-width: 640px) {
-  .history-layout { flex-direction: column; }
-  .history-nav { flex-direction: row; overflow-x: auto; position: static; width: 100%; padding-bottom: 6px; gap: 6px; }
-  .history-nav a { flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); white-space: nowrap; }
 }
 """
 
@@ -349,6 +367,29 @@ def _month_label(year_month: str) -> str:
     return f"{year}年{int(month)}月"
 
 
+_WEEKDAYS = "月火水木金土日"
+
+
+def _day_row(stem: str, parsed: ParsedReport, body: str) -> str:
+    from datetime import date
+
+    d = date.fromisoformat(stem)
+
+    def picks(side: str, label: str, cands: list[ParsedCandidate]) -> str:
+        if not cands:
+            return f'<span class="pk {side} none"><i>{label}</i>候補なし</span>'
+        more = f"<em>ほか{len(cands) - 1}</em>" if len(cands) > 1 else ""
+        return f'<span class="pk {side}"><i>{label}</i>{html.escape(cands[0].name)}{more}</span>'
+
+    sell = picks("sell", "売", parsed.sell_candidates) if parsed.has_sell_section else ""
+    return (
+        f'<details class="day-row" name="history"><summary>'
+        f'<span class="d-date">{d.month:02d}/{d.day:02d}<small>{d.year} {_WEEKDAYS[d.weekday()]}</small></span>'
+        f'<span class="d-picks">{picks("buy", "買", parsed.buy_candidates)}{sell}</span>'
+        f'</summary><div class="report">{body}</div></details>'
+    )
+
+
 def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
     docs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -364,29 +405,25 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
             latest_html = f'<div class="report latest">{body}</div>'
         else:
             year_month = path.stem[:7]
-            history_by_month[year_month].append(
-                f'<details class="day"><summary>{path.stem}</summary>'
-                f'<div class="report">{body}</div></details>'
-            )
+            history_by_month[year_month].append(_day_row(path.stem, parsed, body))
 
     if not report_files:
         latest_html = "<p>まだレポートが生成されていません。</p>"
 
     history_section = "<p>履歴なし</p>"
+    history_count = sum(len(v) for v in history_by_month.values())
     if history_by_month:
         months = sorted(history_by_month.keys(), reverse=True)
-        nav_links = "".join(
-            f'<a href="#m-{ym}">{_month_label(ym)}</a>' for ym in months
+        tabs = "".join(
+            f'<a href="#m-{ym}" data-month="{ym}">{_month_label(ym)}</a>' for ym in months
         )
-        month_sections = "".join(
-            f'<section class="month-section" id="m-{ym}"><h3>{_month_label(ym)}</h3>'
-            f'{"".join(history_by_month[ym])}</section>'
+        panels = "".join(
+            f'<section class="month-panel" id="m-{ym}" data-month="{ym}">'
+            f'<h3 class="month-label">{_month_label(ym)}</h3>'
+            f'<div class="day-list">{"".join(history_by_month[ym])}</div></section>'
             for ym in months
         )
-        history_section = f"""<div class="history-layout">
-<nav class="history-nav">{nav_links}</nav>
-<div class="history-content">{month_sections}</div>
-</div>"""
+        history_section = f'<nav class="month-tabs">{tabs}</nav>{panels}'
 
     latest_pill = (
         f'<span class="pill">最新レポート<b>{html.escape(report_files[0].stem)}</b></span>'
@@ -400,6 +437,7 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{PAGE_TITLE}</title>
+<script>document.documentElement.classList.add("js")</script>
 <style>{_STYLE}</style>
 </head>
 <body>
@@ -410,8 +448,22 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
 </header>
 {latest_html}
-<h2 class="section-title">過去のレポート</h2>
+<div class="history-head"><h2 class="section-title">過去のレポート</h2><span class="count">{history_count}日分</span></div>
 {history_section}
+<script>
+(function () {{
+  var tabs = document.querySelectorAll('.month-tabs a');
+  var panels = document.querySelectorAll('.month-panel');
+  function show(m) {{
+    panels.forEach(function (p) {{ p.classList.toggle('active', p.dataset.month === m); }});
+    tabs.forEach(function (t) {{ t.classList.toggle('active', t.dataset.month === m); }});
+  }}
+  tabs.forEach(function (t) {{
+    t.addEventListener('click', function (e) {{ e.preventDefault(); show(t.dataset.month); }});
+  }});
+  if (tabs.length) show(tabs[0].dataset.month);
+}})();
+</script>
 </body>
 </html>
 """
