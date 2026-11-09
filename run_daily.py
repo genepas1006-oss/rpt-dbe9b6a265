@@ -14,6 +14,8 @@ from report.generate_report import generate_report
 from report.notify import notify_windows
 from report.publish import publish_docs
 from tracking.evaluate import evaluate_pending_predictions
+from tracking.market import index_daily_returns
+from tracking.missed import get_missed_predictions
 from tracking.predictions_db import get_win_rate_stats, init_db, replace_predictions
 from tracking.unfilled import get_unfilled_predictions
 
@@ -21,6 +23,7 @@ DB_PATH = "data/predictions.db"
 REPORTS_DIR = Path("reports")
 DOCS_DIR = Path("docs")
 HISTORY_DAYS = 500
+INDEX_LOOKBACK_DAYS = 45
 
 
 class PublishError(RuntimeError):
@@ -42,7 +45,13 @@ def run(prediction_date: date) -> Path:
 
     source = YFinanceSource()
 
-    evaluate_pending_predictions(DB_PATH, source, as_of=prediction_date)
+    # 不的中の原因分析（地合い）用に日経平均の前日比を取得する。取得できなくても処理は続ける
+    index_bars = source.get_symbol_bars(
+        "^N225", prediction_date - timedelta(days=INDEX_LOOKBACK_DAYS), prediction_date
+    )
+    evaluate_pending_predictions(
+        DB_PATH, source, as_of=prediction_date, market_returns=index_daily_returns(index_bars)
+    )
 
     start = prediction_date - timedelta(days=HISTORY_DAYS)
     buy_candidates = []
@@ -101,6 +110,8 @@ def run(prediction_date: date) -> Path:
         sell_stats,
         get_unfilled_predictions(DB_PATH, "buy"),
         get_unfilled_predictions(DB_PATH, "sell"),
+        get_missed_predictions(DB_PATH, "buy"),
+        get_missed_predictions(DB_PATH, "sell"),
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"

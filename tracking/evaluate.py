@@ -14,10 +14,16 @@ from tracking.predictions_db import get_pending_predictions, record_evaluation
 FALLBACK_DAYS = 7
 
 
-def evaluate_pending_predictions(db_path: str, source: DataSource, as_of: date) -> int:
+def evaluate_pending_predictions(
+    db_path: str,
+    source: DataSource,
+    as_of: date,
+    market_returns: dict[date, float] | None = None,
+) -> int:
     """target_date <= as_of の未評価予測を実データで答え合わせする。
 
     対象日の実データが取得できない予測はスキップする（1件の失敗で全体を止めない）。
+    market_returns（日付→日経平均の前日比）があれば、不的中の原因分析（地合い）に使う。
     戻り値は実際に評価できた件数。
     """
     pending = get_pending_predictions(db_path, as_of)
@@ -40,6 +46,8 @@ def evaluate_pending_predictions(db_path: str, source: DataSource, as_of: date) 
             target_high=bar.high,
             target_close=bar.close,
             actual_date=bar.trade_date,
+            target_open=bar.open,
+            market_return=(market_returns or {}).get(bar.trade_date),
         )
         evaluated_count += 1
 

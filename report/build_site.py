@@ -21,7 +21,8 @@ from collections import defaultdict
 from pathlib import Path
 
 from report.md_to_html import color_deltas
-from report.parse_report import ParsedCandidate, ParsedReport, ParsedUnfilled, parse_report
+from analysis.miss_analysis import build_suggestion, count_causes
+from report.parse_report import ParsedCandidate, ParsedMiss, ParsedReport, ParsedUnfilled, parse_report
 
 PAGE_TITLE = "日本株デイクローズ・リサーチ"
 
@@ -105,6 +106,9 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .unfilled .uf-compare .uf-arrow { color: var(--text-muted); }
 .unfilled .uf-compare .uf-lbl { color: var(--text-muted); font-size: 0.75rem; margin-right: 2px; }
 .unfilled .uf-note { margin-top: 2px; font-size: 0.8rem; color: var(--text-muted); }
+.unfilled .mi-chips { padding: 0 12px 8px; }
+.unfilled .mi-summary { margin: 0; padding: 0 12px 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+.unfilled .mi-suggest { margin: 0; padding: 8px 12px 12px; font-size: 0.82rem; line-height: 1.55; border-top: 1px solid var(--border); }
 .card-grid { display: grid; gap: 10px; margin-bottom: 1em; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
         transition: transform .12s ease, box-shadow .12s ease; }
@@ -322,6 +326,46 @@ def _unfilled_block(items: list[ParsedUnfilled]) -> str:
     )
 
 
+def _miss_row(m: ParsedMiss) -> str:
+    chips = "".join(f'<span class="chip">{html.escape(c)}</span>' for c in m.causes)
+    return (
+        f'<div class="uf-row">'
+        f'<div class="uf-main"><span class="uf-name">{html.escape(m.name)}</span>'
+        f'<span class="uf-gap">{html.escape(m.result_return)}</span></div>'
+        f'<p class="chips mi-chips">{chips}</p>'
+        f'<div class="uf-note">{html.escape(m.detail)}</div></div>'
+    )
+
+
+def _miss_block(items: list[ParsedMiss]) -> str:
+    if not items:
+        return ""
+    groups: dict[tuple[str, str], list[ParsedMiss]] = {}
+    for m in items:  # 入力は新しい予測日順
+        groups.setdefault((m.prediction_date, m.target_date), []).append(m)
+    tag_lists = [m.causes for m in items]
+    summary_chips = "".join(
+        f'<span class="chip">{html.escape(tag)} {n}件</span>' for tag, n in count_causes(tag_lists)
+    )
+    body = "".join(
+        f'<section class="uf-group"><h4 class="uf-group-head">'
+        f"<span>{html.escape(pd)} 予測 → {html.escape(_short_date(td))} 向け</span>"
+        f"<span>{len(rows)}件</span></h4>"
+        f'{"".join(_miss_row(m) for m in rows)}</section>'
+        for (pd, td), rows in groups.items()
+    )
+    return (
+        f'<details class="unfilled misses"><summary><span>不的中の履歴</span>'
+        f'<span class="uf-count">{len(items)}件</span></summary>'
+        f'<p class="uf-help">約定したものの、的中しなかった予測の一覧です。原因は、翌営業日の地合い・寄り付き・'
+        f"予測時の勢いから自動で付けたタグで、複数付くことがあります。"
+        f"原因の記録を始めた後の予測だけが対象です。</p>"
+        f'<p class="chips mi-summary">{summary_chips}</p>'
+        f'<p class="mi-suggest"><b>次回への示唆</b>　{html.escape(build_suggestion(tag_lists))}</p>'
+        f'<div class="uf-list">{body}</div></details>'
+    )
+
+
 def _side_section(
     heading: str,
     side: str,
@@ -329,6 +373,7 @@ def _side_section(
     candidates: list[ParsedCandidate],
     unfilled: list[ParsedUnfilled] | None = None,
     anchor: bool = False,
+    missed: list[ParsedMiss] | None = None,
 ) -> str:
     sub = f"TOP{len(candidates)}" if candidates else ""
     sub_html = f'<span class="side-sub">{sub}</span>' if sub else ""
@@ -336,6 +381,7 @@ def _side_section(
     if stats_lines:
         parts.append(_stat_row(stats_lines))
     parts.append(_unfilled_block(unfilled or []))
+    parts.append(_miss_block(missed or []))
     if candidates:
         cards = "".join(_candidate_card(c, side) for c in candidates)
         parts.append(f'<div class="card-grid">{cards}</div>')
@@ -347,12 +393,12 @@ def _side_section(
 
 def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
     sections = _side_section(
-        "買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled, latest
+        "買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled, latest, parsed.buy_missed
     )
     nav = ""
     if parsed.has_sell_section:
         sections += _side_section(
-            "売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates, parsed.sell_unfilled, latest
+            "売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates, parsed.sell_unfilled, latest, parsed.sell_missed
         )
         if latest:
             nav = (

@@ -50,6 +50,7 @@ class RankedCandidate:
     day_low: float = 0.0
     day_close: float = 0.0
     day_volume: float = 0.0
+    daily_return: float = 0.0
 
 
 def rank_candidates(
@@ -95,6 +96,7 @@ def rank_candidates(
                 day_low=c.low,
                 day_close=c.close,
                 day_volume=c.volume,
+                daily_return=c.technical.daily_return if c.technical else 0.0,
             )
         )
 

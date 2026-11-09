@@ -13,6 +13,7 @@ from datetime import date
 from analysis.scoring import RankedCandidate
 from report.one_point_summary import build_one_point_summary, build_outlook
 from tracking.predictions_db import WinRateStats
+from tracking.missed import MissedPrediction
 from tracking.unfilled import UnfilledPrediction
 
 
@@ -37,6 +38,19 @@ def _unfilled_section(side_label: str, unfilled: list[UnfilledPrediction]) -> li
         lines.append(
             f"- {u.prediction_date.isoformat()} | {u.target_date.isoformat()} | "
             f"{u.name}（{u.code}） | {u.entry_price:,.1f}円 | {u.reason}"
+        )
+    return lines
+
+
+def _missed_section(side_label: str, missed: list[MissedPrediction]) -> list[str]:
+    if not missed:
+        return []
+    lines = ["", f"## 不的中の履歴（{side_label}）", ""]
+    for m in missed:
+        lines.append(
+            f"- {m.prediction_date.isoformat()} | {m.target_date.isoformat()} | "
+            f"{m.name}（{m.code}） | {m.entry_price:,.1f}円 | {m.result_return * 100:+.2f}% | "
+            f"{'・'.join(m.causes)} | {m.detail}"
         )
     return lines
 
@@ -80,6 +94,8 @@ def generate_report(
     sell_stats: WinRateStats,
     buy_unfilled: list[UnfilledPrediction] | None = None,
     sell_unfilled: list[UnfilledPrediction] | None = None,
+    buy_missed: list[MissedPrediction] | None = None,
+    sell_missed: list[MissedPrediction] | None = None,
 ) -> str:
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
@@ -96,6 +112,8 @@ def generate_report(
     ]
     lines += _unfilled_section("買い", buy_unfilled or [])
     lines += _unfilled_section("売り", sell_unfilled or [])
+    lines += _missed_section("買い", buy_missed or [])
+    lines += _missed_section("売り", sell_missed or [])
 
     lines += _candidate_section(
         f"## 本日の買い候補（{target_date.isoformat()}向け・参考指値）",

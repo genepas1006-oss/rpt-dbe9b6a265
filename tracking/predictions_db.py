@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from analysis.scoring import RankedCandidate, Side
+from analysis.miss_analysis import classify_miss
 from tracking.trade_eval import evaluate_trade
 
 SCHEMA = """
@@ -41,9 +42,25 @@ CREATE TABLE IF NOT EXISTS predictions (
     target_close REAL,
     result_return REAL,
     is_win INTEGER,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    pred_close REAL,
+    pred_daily_return REAL,
+    pred_volume_ratio REAL,
+    target_open REAL,
+    market_return REAL,
+    miss_causes TEXT
 );
 """
+
+# 2026-11-09: 不的中の原因分析用に追加した列（既存DBは init_db で追加する）
+EXTRA_COLUMNS = {
+    "pred_close": "REAL",
+    "pred_daily_return": "REAL",
+    "pred_volume_ratio": "REAL",
+    "target_open": "REAL",
+    "market_return": "REAL",
+    "miss_causes": "TEXT",
+}
 
 
 def init_db(db_path: str) -> None:
@@ -53,6 +70,9 @@ def init_db(db_path: str) -> None:
         existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(predictions)")}
         if "side" not in existing_columns:
             conn.execute("ALTER TABLE predictions ADD COLUMN side TEXT NOT NULL DEFAULT 'buy'")
+        for column, column_type in EXTRA_COLUMNS.items():
+            if column not in existing_columns:
+                conn.execute(f"ALTER TABLE predictions ADD COLUMN {column} {column_type}")
         conn.commit()
     finally:
         conn.close()
@@ -72,8 +92,8 @@ def save_predictions(
             INSERT INTO predictions (
                 prediction_date, code, name, side, total_score, technical_score,
                 earnings_score, entry_price, reasons, target_date,
-                evaluated, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                evaluated, created_at, pred_close, pred_daily_return, pred_volume_ratio
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
             """,
             [
                 (
@@ -88,6 +108,9 @@ def save_predictions(
                     json.dumps(c.reasons, ensure_ascii=False),
                     target_date.isoformat(),
                     now,
+                    c.day_close or None,
+                    c.daily_return,
+                    c.volume_ratio,
                 )
                 for c in candidates
             ],
@@ -169,23 +192,43 @@ def record_evaluation(
     target_high: float,
     target_close: float,
     actual_date: date | None = None,
+    target_open: float | None = None,
+    market_return: float | None = None,
 ) -> None:
     conn = sqlite3.connect(db_path)
     try:
         row = conn.execute(
-            "SELECT entry_price, side FROM predictions WHERE id = ?", (prediction_id,)
+            "SELECT entry_price, side, pred_close, pred_daily_return, pred_volume_ratio "
+            "FROM predictions WHERE id = ?",
+            (prediction_id,),
         ).fetchone()
-        entry_price, side = row
+        entry_price, side, pred_close, pred_daily_return, pred_volume_ratio = row
 
         result = evaluate_trade(side, entry_price, target_low, target_high, target_close)
         filled, result_return, is_win = result.filled, result.result_return, result.is_win
+
+        # 約定したが的中しなかった予測にだけ原因タグを付ける（予測時の値が記録されている行のみ）
+        miss_causes = None
+        if filled and is_win is False and pred_close is not None:
+            miss_causes = json.dumps(
+                classify_miss(
+                    side,
+                    pred_close,
+                    pred_daily_return or 0.0,
+                    pred_volume_ratio or 0.0,
+                    target_open,
+                    market_return,
+                ),
+                ensure_ascii=False,
+            )
 
         conn.execute(
             """
             UPDATE predictions
             SET evaluated = 1, filled = ?, target_low = ?, target_high = ?,
                 target_close = ?, result_return = ?, is_win = ?,
-                target_date = COALESCE(?, target_date)
+                target_date = COALESCE(?, target_date),
+                target_open = ?, market_return = ?, miss_causes = ?
             WHERE id = ?
             """,
             (
@@ -196,6 +239,9 @@ def record_evaluation(
                 result_return,
                 None if is_win is None else int(is_win),
                 None if actual_date is None else actual_date.isoformat(),
+                target_open,
+                market_return,
+                miss_causes,
                 prediction_id,
             ),
         )
