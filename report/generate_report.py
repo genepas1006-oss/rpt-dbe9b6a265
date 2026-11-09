@@ -11,7 +11,13 @@
 from datetime import date
 
 from analysis.scoring import RankedCandidate
-from report.one_point_summary import build_one_point_summary, build_outlook
+from data_sources.base import Fundamentals
+from report.one_point_summary import (
+    build_one_point_summary,
+    build_one_point_with_fundamentals,
+    build_outlook,
+    build_outlook_with_fundamentals,
+)
 from tracking.predictions_db import MarketOrderStats, WinRateStats
 from tracking.missed import MissedPrediction
 from tracking.previous import STATUS_LABEL, STATUS_ORDER, PreviousResults
@@ -110,7 +116,11 @@ def _missed_section(side_label: str, missed: list[MissedPrediction]) -> list[str
 
 
 def _candidate_section(
-    heading: str, candidates: list[RankedCandidate], empty_message: str
+    heading: str,
+    candidates: list[RankedCandidate],
+    empty_message: str,
+    fundamentals: dict[str, Fundamentals] | None = None,
+    earnings_days: dict[str, int | None] | None = None,
 ) -> list[str]:
     lines = ["", heading, ""]
     if not candidates:
@@ -132,7 +142,13 @@ def _candidate_section(
             summary = build_one_point_summary(
                 c.day_open, c.day_high, c.day_low, c.day_close, c.volume_ratio
             )
-            outlook = build_outlook(c.side, c.day_high, c.day_low, c.day_close, c.volume_ratio)
+            f = (fundamentals or {}).get(c.code)
+            summary = build_one_point_with_fundamentals(
+                c.day_high, c.day_low, c.day_close, c.volume_ratio, c.daily_return, f, summary
+            )
+            outlook = build_outlook_with_fundamentals(
+                c.side, c.day_high, c.day_low, c.day_close, c.volume_ratio, f, (earnings_days or {}).get(c.code)
+            )
             lines.append(f"- ワンポイント: {summary}")
             lines.append(f"- 明日の見通し: {outlook}")
             lines.append("")
@@ -156,6 +172,8 @@ def generate_report(
     sell_previous: PreviousResults | None = None,
     buy_effect: ScoreEffect | None = None,
     sell_effect: ScoreEffect | None = None,
+    fundamentals: dict[str, Fundamentals] | None = None,
+    earnings_days: dict[str, int | None] | None = None,
 ) -> str:
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
@@ -185,11 +203,15 @@ def generate_report(
         f"## 本日の買い候補（{target_date.isoformat()}向け・参考指値）",
         buy_candidates,
         "本日は基準（スコア>0）を満たす買い候補がありませんでした。",
+        fundamentals,
+        earnings_days,
     )
     lines += _candidate_section(
         f"## 本日の売り候補（{target_date.isoformat()}向け・参考指値）",
         sell_candidates,
         "本日は基準（スコア>0）を満たす売り候補がありませんでした。",
+        fundamentals,
+        earnings_days,
     )
 
     return "\n".join(lines)

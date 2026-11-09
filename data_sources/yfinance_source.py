@@ -6,7 +6,7 @@ from datetime import date, timedelta
 import yfinance as yf
 
 from config import yfinance_symbol
-from data_sources.base import DailyBar, DataSource
+from data_sources.base import DailyBar, DataSource, Fundamentals
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,36 @@ class YFinanceSource(DataSource):
                 continue
 
         return bars
+
+    def get_fundamentals(self, code: str) -> Fundamentals | None:
+        symbol = yfinance_symbol(code)
+        try:
+            info = yf.Ticker(symbol).info
+        except Exception:
+            logger.warning("ファンダメンタル取得に失敗: %s", symbol, exc_info=True)
+            return None
+        if not info:
+            return None
+
+        def num(key: str) -> float | None:
+            v = info.get(key)
+            return float(v) if isinstance(v, (int, float)) and v == v else None
+
+        per = num("trailingPE")
+        dy = num("dividendYield")  # yfinanceは%表記（4.33 = 4.33%）
+        count = num("numberOfAnalystOpinions")
+        return Fundamentals(
+            per=per if per is not None and per > 0 else None,
+            pbr=num("priceToBook"),
+            dividend_yield=dy / 100 if dy is not None else None,
+            roe=num("returnOnEquity"),
+            revenue_growth=num("revenueGrowth"),
+            earnings_growth=num("earningsGrowth"),
+            target_price=num("targetMeanPrice"),
+            analyst_count=int(count) if count is not None else None,
+            week52_high=num("fiftyTwoWeekHigh"),
+            week52_low=num("fiftyTwoWeekLow"),
+        )
 
     def get_earnings_dates(self, code: str) -> list[date]:
         symbol = yfinance_symbol(code)

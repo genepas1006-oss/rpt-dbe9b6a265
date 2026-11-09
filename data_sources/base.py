@@ -21,6 +21,22 @@ class DailyBar:
     volume: int
 
 
+@dataclass(frozen=True)
+class Fundamentals:
+    """ファンダメンタル指標（取得できた項目のみ。取得できないものはNone）。比率は小数（0.1 = 10%）。"""
+
+    per: float | None = None  # 実績PER（倍）。赤字などで算出できない場合はNone
+    pbr: float | None = None
+    dividend_yield: float | None = None
+    roe: float | None = None
+    revenue_growth: float | None = None
+    earnings_growth: float | None = None
+    target_price: float | None = None  # アナリスト平均目標株価（円）
+    analyst_count: int | None = None
+    week52_high: float | None = None
+    week52_low: float | None = None
+
+
 class DataSource(ABC):
     @abstractmethod
     def get_daily_bars(self, code: str, start: date, end: date) -> list[DailyBar]:
@@ -30,6 +46,10 @@ class DataSource(ABC):
         銘柄自体が取得不可の場合は空リストを返す（例外を送出しない）。
         """
         raise NotImplementedError
+
+    def get_fundamentals(self, code: str) -> Fundamentals | None:
+        """指定銘柄のファンダメンタル指標を取得する。未対応のデータ元・取得失敗はNone（例外を送出しない）。"""
+        return None
 
     @abstractmethod
     def get_earnings_dates(self, code: str) -> list[date]:

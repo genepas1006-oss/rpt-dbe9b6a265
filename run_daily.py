@@ -48,6 +48,12 @@ class PublishError(RuntimeError):
     """レポートは生成できたが、GitHub Pagesへの公開に失敗した。"""
 
 
+def next_earnings_days(earnings_dates: list[date], today: date) -> int | None:
+    """次回の決算発表日まで（暦日）の日数。今日以降の発表日がなければNone。"""
+    upcoming = [d for d in earnings_dates if d >= today]
+    return (min(upcoming) - today).days if upcoming else None
+
+
 def next_business_day(d: date) -> date:
     """土日をスキップした翌営業日を返す（日本の祝日は考慮していない・既知の簡略化）。"""
     next_day = d + timedelta(days=1)
@@ -84,6 +90,7 @@ def run(prediction_date: date) -> Path:
     buy_candidates = []
     sell_candidates = []
     all_bars = {}
+    all_earnings = {}
     for code, name in NIKKEI225:
         bars = source.get_daily_bars(code, start, prediction_date)
         if not bars or bars[-1].trade_date != prediction_date:
@@ -92,6 +99,7 @@ def run(prediction_date: date) -> Path:
 
         all_bars[code] = bars
         earnings_dates = source.get_earnings_dates(code)
+        all_earnings[code] = earnings_dates
         today = bars[-1]
 
         buy_candidates.append(
@@ -150,6 +158,20 @@ def run(prediction_date: date) -> Path:
 
     buy_stats = get_win_rate_stats(DB_PATH, side="buy")
     sell_stats = get_win_rate_stats(DB_PATH, side="sell")
+    # 候補10銘柄のファンダメンタル（コメント用の参考情報）。取得できない銘柄は従来のコメントにする
+    fundamentals = {}
+    for c in [*ranked_buy, *ranked_sell]:
+        try:
+            f = source.get_fundamentals(c.code)
+        except Exception as e:  # noqa: BLE001
+            print(f"[fundamentals] {c.code} の取得に失敗しました: {e}")
+            f = None
+        if f is not None:
+            fundamentals[c.code] = f
+    earnings_days = {
+        code: next_earnings_days(all_earnings.get(code, []), prediction_date)
+        for code in {c.code for c in [*ranked_buy, *ranked_sell]}
+    }
     report_text = generate_report(
         prediction_date,
         target_date,
@@ -167,6 +189,8 @@ def run(prediction_date: date) -> Path:
         get_previous_results(DB_PATH, "sell", prediction_date),
         get_score_effect(DB_PATH, "buy"),
         get_score_effect(DB_PATH, "sell"),
+        fundamentals=fundamentals,
+        earnings_days=earnings_days,
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"
