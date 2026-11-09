@@ -189,3 +189,22 @@ def test_premarket_empty_report_is_hidden_but_other_empty_reports_stay(tmp_path)
     page = build_index(reports_dir, tmp_path / "docs", "x").read_text(encoding="utf-8")
     assert "<b>2026-10-27</b>" not in page
     assert "10/26" in page and "<b>2026-10-29</b>" in page
+
+
+def test_stock_names_link_to_yahoo_chart():
+    from report.build_site import _stock_link
+
+    a = _stock_link("ファナック（6954）")
+    assert 'href="https://finance.yahoo.co.jp/quote/6954.T/chart"' in a and ">ファナック（6954）</a>" in a
+    assert 'target="_blank"' in a and 'rel="noopener noreferrer"' in a
+    assert "href" in _stock_link("キオクシアホールディングス（285A）")  # 英字を含むコード
+    assert _stock_link("コード無し") == "コード無し"  # コードが分からなければリンクにしない
+    assert _stock_link('A"<b>（6954）', None).count("<b>") == 0  # 名前はエスケープされる
+
+
+def test_candidate_card_name_is_linked(tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    _write_report(reports_dir, "2026-10-26", [_candidate("buy")], [_candidate("sell")])
+    page = build_index(reports_dir, tmp_path / "docs", "x").read_text(encoding="utf-8")
+    assert '<span class="card-name"><a class="stock-link" href="https://finance.yahoo.co.jp/quote/6954.T/chart"' in page

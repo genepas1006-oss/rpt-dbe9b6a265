@@ -168,6 +168,8 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
               display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .card.rank1.buy .rank-badge { background: var(--buy); color: #fff; }
 .card.rank1.sell .rank-badge { background: var(--sell); color: #fff; }
+.stock-link { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
+.stock-link:hover { color: var(--accent); }
 .card-name { font-weight: 700; font-size: 0.97rem; line-height: 1.35; }
 .side-badge { margin-left: auto; font-size: 0.7rem; padding: 3px 9px; border-radius: 999px;
               font-weight: 800; white-space: nowrap; }
@@ -292,6 +294,22 @@ def _stat_row(lines: list[str]) -> str:
     return f'<div class="stat-row">{"".join(t for _, t in tiles)}</div>'
 
 
+_CODE_IN_LABEL_RE = re.compile(r"（([0-9A-Z]{4})）\s*$")
+YAHOO_CHART_URL = "https://finance.yahoo.co.jp/quote/{code}.T/chart"
+
+
+def _stock_link(label: str, code: str | None = None) -> str:
+    """銘柄名をYahoo!ファイナンスのチャートへのリンクにする。コード（4桁の英数字）が分からなければリンクにしない。"""
+    if code is None:
+        m = _CODE_IN_LABEL_RE.search(label)
+        code = m.group(1) if m else None
+    text = html.escape(label)
+    if not code or not re.fullmatch(r"[0-9A-Z]{4}", code):
+        return text
+    url = YAHOO_CHART_URL.format(code=code)
+    return f'<a class="stock-link" href="{url}" target="_blank" rel="noopener noreferrer">{text}</a>'
+
+
 def _yen(v: float, signed: bool = False) -> str:
     return f"{round(v):+,}円" if signed else f"{round(v):,}円"
 
@@ -394,7 +412,7 @@ def _candidate_card(c: ParsedCandidate, side: str) -> str:
 <summary>
 <div class="card-head">
 <span class="rank-badge">{c.rank}</span>
-<span class="card-name">{html.escape(c.name)}（{html.escape(c.code)}）</span>
+<span class="card-name">{_stock_link(f"{c.name}（{c.code}）", c.code)}</span>
 <span class="side-badge {side}">{side_label}・スコア{c.score}</span>
 </div>
 <p class="card-price">{html.escape(c.entry_price)}</p>
@@ -434,7 +452,7 @@ def _unfilled_row(u: ParsedUnfilled) -> str:
         note = f'<div class="uf-note">{html.escape(u.reason)}</div>'
     return (
         f'<div class="uf-row" title="{html.escape(u.reason, quote=True)}">'
-        f'<div class="uf-main"><span class="uf-name">{html.escape(u.name)}</span>{gap_badge}</div>'
+        f'<div class="uf-main"><span class="uf-name">{_stock_link(u.name)}</span>{gap_badge}</div>'
         f"{compare}{note}</div>"
     )
 
@@ -466,7 +484,7 @@ def _miss_row(m: ParsedMiss) -> str:
     chips = "".join(f'<span class="chip">{html.escape(c)}</span>' for c in m.causes)
     return (
         f'<div class="uf-row">'
-        f'<div class="uf-main"><span class="uf-name">{html.escape(m.name)}</span>'
+        f'<div class="uf-main"><span class="uf-name">{_stock_link(m.name)}</span>'
         f'<span class="uf-gap">{html.escape(m.result_return)}</span></div>'
         f'<p class="chips mi-chips">{chips}</p>'
         f'<div class="uf-note">{html.escape(m.detail)}</div></div>'
@@ -621,7 +639,7 @@ def _previous_block(prev: ParsedPrevious | None) -> str:
         rows.append(
             f'<div class="prev-row {cls}"><span class="rk">{html.escape(i.rank.removesuffix("位"))}</span>'
             f'<span class="st {cls}">{html.escape(i.status)}</span>'
-            f'<div class="pn"><b>{html.escape(i.name)}</b>'
+            f'<div class="pn"><b>{_stock_link(i.name)}</b>'
             f"<small>指値{html.escape(i.entry_price)}{move}</small></div>"
             f'<div class="pr">{ret}<small>{sub_ret}</small></div></div>'
         )
