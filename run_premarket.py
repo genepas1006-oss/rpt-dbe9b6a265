@@ -16,9 +16,11 @@ from zoneinfo import ZoneInfo
 from analysis.market_gaps import load_market_gaps
 from data_sources.yfinance_source import YFinanceSource
 from report.build_site import build_index
+from tracking.virtual_fund import get_default_virtual_fund
 from report.premarket import compute_premarket, save_premarket
 from report.publish import publish_docs
 
+DB_PATH = "data/predictions.db"
 MARKET_GAPS_PATH = Path("data/market_gaps.json")
 REPORTS_DIR = Path("reports")
 DOCS_DIR = Path("docs")
@@ -56,7 +58,9 @@ def main() -> int:
     if args.no_publish:
         return 0
 
-    build_index(REPORTS_DIR, DOCS_DIR, now.strftime("%Y-%m-%d %H:%M"), gaps)
+    build_index(
+        REPORTS_DIR, DOCS_DIR, now.strftime("%Y-%m-%d %H:%M"), gaps, get_default_virtual_fund(DB_PATH)
+    )
     result = publish_docs(Path(__file__).parent, f"docs: {for_date.isoformat()} 環境認識の更新")
     print(f"[publish] {result.status}: {result.detail}")
     return 0 if result.ok else 1

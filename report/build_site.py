@@ -24,6 +24,7 @@ from datetime import date
 
 from report.md_to_html import color_deltas
 from report.premarket import Premarket, load_premarket
+from tracking.virtual_fund import VirtualFund
 from analysis.miss_analysis import build_suggestion, count_causes
 from report.parse_report import (
     ParsedCandidate,
@@ -220,6 +221,24 @@ details.day-row > summary:hover { background: var(--surface-2); }
 .pk em { font-style: normal; color: var(--text-muted); font-size: 0.74rem; }
 .pk.none { color: var(--text-muted); }
 details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1px solid var(--border); }
+.fund { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 16px; margin: 0 0 18px; }
+.fund-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.fund-title { font-size: 0.95rem; font-weight: 800; color: var(--ink); }
+.fund-sub { font-size: 0.72rem; color: var(--text-muted); }
+.fund-balance { font-size: 1.9rem; font-weight: 800; color: var(--ink); line-height: 1.3; margin: 4px 0 8px; }
+.fund-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.fund-stat { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
+.fund-stat .cap { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.fund-stat .val { font-size: 1.05rem; font-weight: 800; color: var(--ink); }
+.fund-stat .val small { font-size: 0.74rem; font-weight: normal; color: var(--text-muted); margin-left: 4px; }
+.fund-chart { width: 100%; height: 64px; display: block; margin: 4px 0 8px; }
+.fund-chart polyline { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.fund-chart line { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.fund-days { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.fund-days th { text-align: right; font-weight: normal; color: var(--text-muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.fund-days td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.fund-days th:first-child, .fund-days td:first-child { text-align: left; }
+.fund-note { margin: 8px 0 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
 @media (min-width: 860px) {
   /* 買い/売りの各ブロック（見出し・前営業日・成績・履歴・候補）を同じ行に揃える */
   .sides { grid-template-columns: 1fr 1fr; gap: 0 22px; }
@@ -271,6 +290,69 @@ def _stat_row(lines: list[str]) -> str:
         tiles.append((0 if feature else 1, tile))
     tiles.sort(key=lambda t: t[0])  # 的中率を先頭の大きなタイルにする
     return f'<div class="stat-row">{"".join(t for _, t in tiles)}</div>'
+
+
+def _yen(v: float, signed: bool = False) -> str:
+    return f"{round(v):+,}円" if signed else f"{round(v):,}円"
+
+
+def _fund_block(fund: VirtualFund | None) -> str:
+    """トップページの仮想資金（デモ）。勝敗の色分けはせず、符号付きの数値で示す。"""
+    if fund is None:
+        return ""
+    last = fund.last_day
+    if last is None:
+        day_stat = '<div class="fund-stat"><span class="cap">前日比</span><span class="val">—</span></div>'
+    else:
+        day_stat = (
+            f'<div class="fund-stat"><span class="cap">前日比（{last.target_date.month}/{last.target_date.day}）</span>'
+            f'<span class="val">{_yen(last.pnl, True)}<small>{last.pnl_pct * 100:+.2f}%</small></span></div>'
+        )
+    buy_total = sum(d.buy_pnl for d in fund.days)
+    sell_total = sum(d.sell_pnl for d in fund.days)
+    stats = (
+        day_stat
+        + f'<div class="fund-stat"><span class="cap">開始からの損益</span>'
+        f'<span class="val">{_yen(fund.total_pnl, True)}<small>{fund.total_pct * 100:+.2f}%</small></span></div>'
+        + f'<div class="fund-stat"><span class="cap">買い・売り別の累計</span>'
+        f'<span class="val"><small style="margin:0">買い</small> {_yen(buy_total, True)}'
+        f'<br><small style="margin:0">売り</small> {_yen(sell_total, True)}</span></div>'
+    )
+    chart = ""
+    if fund.days:
+        values = [fund.initial] + [d.end_balance for d in fund.days]
+        lo, hi = min(values), max(values)
+        span = (hi - lo) or 1.0
+        n = len(values) - 1 or 1
+        pts = " ".join(
+            f"{i / n * 100:.2f},{(1 - (v - lo) / span) * 56 + 4:.2f}" for i, v in enumerate(values)
+        )
+        base_y = (1 - (fund.initial - lo) / span) * 56 + 4
+        chart = (
+            f'<svg class="fund-chart" viewBox="0 0 100 64" preserveAspectRatio="none" role="img" '
+            f'aria-label="残高の推移"><line x1="0" y1="{base_y:.2f}" x2="100" y2="{base_y:.2f}"/>'
+            f'<polyline points="{pts}"/></svg>'
+        )
+    rows = "".join(
+        f"<tr><td>{d.target_date.month:02d}/{d.target_date.day:02d}</td>"
+        f"<td>{_yen(d.pnl, True)}</td><td>{d.pnl_pct * 100:+.2f}%</td><td>{_yen(d.end_balance)}</td></tr>"
+        for d in reversed(fund.days[-10:])
+    )
+    table = (
+        '<table class="fund-days"><thead><tr><th>結果日</th><th>損益</th><th>前日比</th><th>残高</th></tr></thead>'
+        f"<tbody>{rows}</tbody></table>"
+        if rows
+        else '<p class="fund-note">最初の答え合わせが済むと、日別の損益と残高をここに表示します。</p>'
+    )
+    return (
+        '<section class="fund"><div class="fund-head"><span class="fund-title">仮想資金（デモ）</span>'
+        f'<span class="fund-sub">開始 {_yen(fund.initial)}</span></div>'
+        f'<div class="fund-balance">{_yen(fund.balance)}</div>'
+        f'<div class="fund-stats">{stats}</div>{chart}{table}'
+        '<p class="fund-note">買い・売りの全候補に、毎日「残高÷10」ずつ指値で投入し、約定した分を終値で決済した場合の'
+        '参考値です（不成立は現金のまま・複利）。手数料・単元株・信用取引の費用は考慮していません。'
+        '実際の損益や将来の成績を保証するものではありません。</p></section>'
+    )
 
 
 def _candidate_card(c: ParsedCandidate, side: str) -> str:
@@ -628,7 +710,11 @@ def _day_row(stem: str, parsed: ParsedReport, body: str) -> str:
 
 
 def build_index(
-    reports_dir: Path, docs_dir: Path, generated_at: str, market_gaps: dict[date, float] | None = None
+    reports_dir: Path,
+    docs_dir: Path,
+    generated_at: str,
+    market_gaps: dict[date, float] | None = None,
+    fund: VirtualFund | None = None,
 ) -> Path:
     docs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -694,6 +780,7 @@ def build_index(
 <div class="meta">{latest_pill}<span class="pill">最終更新<b>{html.escape(generated_at)}</b></span></div>
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
 </header>
+{_fund_block(fund)}
 {env_html}
 {latest_html}
 <div class="history-head"><h2 class="section-title">過去のレポート</h2><span class="count">{history_count}日分</span></div>

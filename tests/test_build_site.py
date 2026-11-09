@@ -146,3 +146,24 @@ def test_unfilled_history_button_and_reasons(tmp_path):
     assert "当日の高値</span>4,040.0円" in html_text
     assert "2026-10-27 予測 → 10/28 向け" in html_text
     assert html_text.count('class="uf-count"') == 1  # 買いは不成立なしのため非表示
+
+
+def test_fund_block_shows_balance_and_day_change(tmp_path):
+    from datetime import date as d
+    from report.build_site import _fund_block
+    from tracking.virtual_fund import FundDay, VirtualFund
+
+    day = FundDay(d(2026, 11, 9), d(2026, 11, 10), 1_000_000, 1600.0, 1500.0, 100.0, 6, 1_001_600.0)
+    html_ = _fund_block(VirtualFund(1_000_000.0, [day]))
+    assert "1,001,600円" in html_
+    assert "+1,600円" in html_ and "+0.16%" in html_
+    assert "保証するものではありません" in html_
+
+
+def test_fund_block_before_first_result_and_none():
+    from report.build_site import _fund_block
+    from tracking.virtual_fund import VirtualFund
+
+    html_ = _fund_block(VirtualFund(1_000_000.0, []))
+    assert "1,000,000円" in html_ and "—" in html_
+    assert _fund_block(None) == ""

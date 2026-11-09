@@ -11,6 +11,7 @@ from analysis.market_gaps import market_overnight_gaps, save_market_gaps
 from config import NIKKEI225
 from data_sources.yfinance_source import YFinanceSource
 from report.build_site import build_index
+from tracking.virtual_fund import get_default_virtual_fund
 from report.generate_report import generate_report
 from report.notify import notify_windows
 from report.publish import publish_docs
@@ -150,7 +151,7 @@ def run(prediction_date: date) -> Path:
     )
 
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-    build_index(REPORTS_DIR, DOCS_DIR, generated_at, market_gaps)
+    build_index(REPORTS_DIR, DOCS_DIR, generated_at, market_gaps, get_default_virtual_fund(DB_PATH))
     result = publish_docs(Path(__file__).parent, f"docs: {prediction_date.isoformat()}レポート公開")
     print(f"[publish] {result.status}: {result.detail}")
     if not result.ok:
