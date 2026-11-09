@@ -194,12 +194,27 @@ def test_site_without_premarket_shows_unknown_with_reason(tmp_path):
     assert '<span class="tag unknown">不明</span>' in page
 
 
-def test_site_hides_stale_premarket(tmp_path):
-    # 最新レポートの予測日(11/10) 以前が対象日の環境認識は、古いので出さない
-    page = _page(tmp_path, _pm(for_date=date(2026, 11, 10)), report_day="2026-11-10")
-    assert "米国（S&amp;P500）前日比" not in page
-    page2 = _page(tmp_path, _pm(for_date=date(2026, 11, 9)), report_day="2026-11-10")
-    assert "米国（S&amp;P500）前日比" not in page2
+def test_site_keeps_past_target_day_values_with_reference_label_and_next_day_unknown(tmp_path):
+    # 最新レポートの予測日(11/9) 以前が対象日の値は、隠さず「対象日は過ぎています・参考」と明記して残す
+    page = _page(tmp_path, _pm(for_date=date(2026, 11, 9)), report_day="2026-11-09")
+    assert "2026-11-09 寄り付き前の値（対象日は過ぎています・参考） ／ 売買の助言ではありません" in page
+    assert '<span style="color:var(--up)">+1.20%</span>' in page and '<span class="tag guess">推測</span>' in page
+    # 翌営業日向けの欄は「不明（理由）」として別に出す
+    assert '<div class="env-k">翌営業日向けの想定ギャップ</div><div class="env-v">不明</div>' in page
+    assert "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます" in page
+
+
+def test_site_current_premarket_has_no_next_day_unknown_row(tmp_path):
+    page = _page(tmp_path, _pm(for_date=date(2026, 11, 10)), report_day="2026-11-09")
+    assert "寄り付き前の値（対象日は過ぎています" not in page
+    assert "翌営業日向けの想定ギャップ" not in page
+    assert "2026-11-10 寄り付き前 ／ 売買の助言ではありません" in page
+
+
+def test_site_older_premarket_is_also_kept_and_labeled(tmp_path):
+    page = _page(tmp_path, _pm(for_date=date(2026, 11, 6)), report_day="2026-11-10")
+    assert "2026-11-06 寄り付き前の値（対象日は過ぎています・参考）" in page
+    assert "翌営業日向けの想定ギャップ" in page
 
 
 def test_site_accuracy_unknown_when_not_available(tmp_path):

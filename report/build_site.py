@@ -428,12 +428,24 @@ def _env_row(key: str, value: str, tag: str, tag_label: str, source: str, small:
     )
 
 
+_NEXT_DAY_UNKNOWN = "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます"
+
+
 def _environment_block(pm: Premarket | None, latest_prediction_date: date | None) -> str:
-    """寄り前の環境認識（目安）。事実・推測・不明を区別し、出所と基準日を付ける。"""
-    fresh = pm is not None and (latest_prediction_date is None or pm.for_date > latest_prediction_date)
-    if fresh:
-        sub_title = f"{pm.for_date.isoformat()} 寄り付き前 ／ 売買の助言ではありません"
-        rows = [
+    """寄り前の環境認識（目安）。事実・推測・不明を区別し、出所と基準日を付ける。
+
+    最新レポートの予測日以前が対象日の値（対象日が過ぎた値）も隠さず、「参考」と明記して残す。
+    その場合は、翌営業日向けの欄を「不明（理由）」として別に出す。
+    """
+    rows = []
+    if pm is not None:
+        is_current = latest_prediction_date is None or pm.for_date > latest_prediction_date
+        sub_title = (
+            f"{pm.for_date.isoformat()} 寄り付き前 ／ 売買の助言ではありません"
+            if is_current
+            else f"{pm.for_date.isoformat()} 寄り付き前の値（対象日は過ぎています・参考） ／ 売買の助言ではありません"
+        )
+        rows += [
             _env_row(
                 "米国（S&P500）前日比",
                 color_deltas(html.escape(f"{pm.us_return * 100:+.2f}%")),
@@ -454,14 +466,13 @@ def _environment_block(pm: Premarket | None, latest_prediction_date: date | None
             rows.append(_env_row("過去の精度", html.escape(accuracy), "fact", "事実（過去の検証）", src, small=True))
         else:
             rows.append(_env_row("過去の精度", "不明", "unknown", "不明", "検証に必要なデータが足りません"))
+        if not is_current:
+            rows.append(_env_row("翌営業日向けの想定ギャップ", "不明", "unknown", "不明", _NEXT_DAY_UNKNOWN))
     else:
         sub_title = "売買の助言ではありません"
-        rows = [
-            _env_row(
-                "想定ギャップの目安（日本株全体の平均）", "不明", "unknown", "不明",
-                "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます",
-            )
-        ]
+        rows.append(
+            _env_row("想定ギャップの目安（日本株全体の平均）", "不明", "unknown", "不明", _NEXT_DAY_UNKNOWN)
+        )
     rows.append(
         _env_row(
             "PTS・ADR・寄り前気配・適時開示・SNS", "不明", "unknown", "不明", "無料データでは取得できないため"
