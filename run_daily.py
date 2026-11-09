@@ -7,6 +7,7 @@ from pathlib import Path
 from analysis.earnings import compute_earnings_score, compute_short_earnings_score
 from analysis.scoring import CandidateInput, rank_candidates
 from analysis.technical import compute_short_technical_score, compute_technical_score
+from analysis.market_gaps import market_overnight_gaps, save_market_gaps
 from config import NIKKEI225
 from data_sources.yfinance_source import YFinanceSource
 from report.build_site import build_index
@@ -24,6 +25,7 @@ DB_PATH = "data/predictions.db"
 REPORTS_DIR = Path("reports")
 DOCS_DIR = Path("docs")
 HISTORY_DAYS = 500
+MARKET_GAPS_PATH = Path("data/market_gaps.json")
 INDEX_LOOKBACK_DAYS = 45
 
 
@@ -57,12 +59,14 @@ def run(prediction_date: date) -> Path:
     start = prediction_date - timedelta(days=HISTORY_DAYS)
     buy_candidates = []
     sell_candidates = []
+    all_bars = {}
     for code, name in NIKKEI225:
         bars = source.get_daily_bars(code, start, prediction_date)
         if not bars or bars[-1].trade_date != prediction_date:
             # 対象日のデータが取れない銘柄はスキップする（1銘柄の欠損で全体を止めない）
             continue
 
+        all_bars[code] = bars
         earnings_dates = source.get_earnings_dates(code)
         today = bars[-1]
 
@@ -92,6 +96,12 @@ def run(prediction_date: date) -> Path:
                 earnings=compute_short_earnings_score(bars, earnings_dates),
             )
         )
+
+    # 朝の環境認識（米国市場→想定ギャップ）の傾きを出すための、日本株全体の夜間ギャップの履歴。失敗しても続ける
+    try:
+        save_market_gaps(MARKET_GAPS_PATH, market_overnight_gaps(all_bars))
+    except Exception as e:  # noqa: BLE001
+        print(f"[market_gaps] 保存に失敗しました: {e}")
 
     ranked_buy = rank_candidates(buy_candidates, side="buy")
     ranked_sell = rank_candidates(sell_candidates, side="sell")

@@ -20,7 +20,10 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from datetime import date
+
 from report.md_to_html import color_deltas
+from report.premarket import Premarket, load_premarket
 from analysis.miss_analysis import build_suggestion, count_causes
 from report.parse_report import (
     ParsedCandidate,
@@ -101,6 +104,21 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .prev-row .pr { text-align: right; font-weight: 800; font-size: 0.95rem; white-space: nowrap; }
 .prev-row.win .pr { color: var(--win); } .prev-row.loss .pr { color: var(--loss); }
 .prev-row.nofill .pr, .prev-row.pending .pr { color: var(--idle); font-weight: 600; font-size: 0.8rem; }
+.env { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 14px; margin: 0 0 14px; }
+.env-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.env-title { font-weight: 800; font-size: 0.95rem; color: var(--ink); }
+.env-sub { font-size: 0.74rem; color: var(--text-muted); }
+.env-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.env-k { font-size: 0.8rem; color: var(--text-muted); grid-column: 1; }
+.env-v { font-size: 1.05rem; font-weight: 800; grid-column: 1; line-height: 1.35; }
+.env-row .tag { grid-column: 2; grid-row: 1 / span 2; justify-self: end; }
+.env-v.small { font-size: 0.85rem; font-weight: 600; }
+.env-src { font-size: 0.72rem; color: var(--text-muted); grid-column: 1 / -1; }
+.env-note { margin: 6px 0 0; font-size: 0.72rem; color: var(--text-muted); }
+.tag { font-size: 0.7rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.tag.fact { background: var(--win-bg); color: var(--win); }
+.tag.guess { background: var(--loss-bg); color: var(--loss); }
+.tag.unknown { background: var(--idle-bg); color: var(--idle); }
 .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow); }
 .stat-tile.feature { grid-column: 1 / -1; }
@@ -402,6 +420,62 @@ def _status_class(label: str) -> str:
     return _STATUS_CLASS.get(label, "pending")
 
 
+def _env_row(key: str, value: str, tag: str, tag_label: str, source: str, small: bool = False) -> str:
+    return (
+        f'<div class="env-row"><div class="env-k">{html.escape(key)}</div>'
+        f'<div class="env-v{" small" if small else ""}">{value}</div><span class="tag {tag}">{tag_label}</span>'
+        f'<div class="env-src">{html.escape(source)}</div></div>'
+    )
+
+
+def _environment_block(pm: Premarket | None, latest_prediction_date: date | None) -> str:
+    """寄り前の環境認識（目安）。事実・推測・不明を区別し、出所と基準日を付ける。"""
+    fresh = pm is not None and (latest_prediction_date is None or pm.for_date > latest_prediction_date)
+    if fresh:
+        sub_title = f"{pm.for_date.isoformat()} 寄り付き前 ／ 売買の助言ではありません"
+        rows = [
+            _env_row(
+                "米国（S&P500）前日比",
+                color_deltas(html.escape(f"{pm.us_return * 100:+.2f}%")),
+                "fact", "事実", f"Yahoo Finance ^GSPC・{pm.us_date.isoformat()} 終値",
+            ),
+            _env_row(
+                "想定ギャップの目安（日本株全体の平均）",
+                color_deltas(html.escape(f"約{pm.expected_gap * 100:+.1f}%")),
+                "guess", "推測", f"傾き{pm.slope:.2f}×米国前日比・直近{pm.n_fit}営業日の回帰",
+            ),
+        ]
+        if pm.direction_acc is not None and pm.corr is not None and pm.mae is not None and pm.mae_zero is not None:
+            accuracy = (
+                f"方向一致 {pm.direction_acc * 100:.0f}%・相関 {pm.corr:.2f}・平均誤差 {pm.mae * 100:.2f}%"
+                f"（常に0と予測した場合 {pm.mae_zero * 100:.2f}%）"
+            )
+            src = f"{pm.eval_start}〜{pm.eval_end}（{pm.eval_n}日、各日をその日より前のデータだけで予測）"
+            rows.append(_env_row("過去の精度", html.escape(accuracy), "fact", "事実（過去の検証）", src, small=True))
+        else:
+            rows.append(_env_row("過去の精度", "不明", "unknown", "不明", "検証に必要なデータが足りません"))
+    else:
+        sub_title = "売買の助言ではありません"
+        rows = [
+            _env_row(
+                "想定ギャップの目安（日本株全体の平均）", "不明", "unknown", "不明",
+                "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます",
+            )
+        ]
+    rows.append(
+        _env_row(
+            "PTS・ADR・寄り前気配・適時開示・SNS", "不明", "unknown", "不明", "無料データでは取得できないため"
+        )
+    )
+    return (
+        f'<section class="env"><div class="env-head"><span class="env-title">環境認識（目安）</span>'
+        f'<span class="env-sub">{html.escape(sub_title)}</span></div>'
+        f'<div class="env-rows">{"".join(rows)}</div>'
+        f'<p class="env-note">日本株全体の平均の目安であり、個別銘柄の値動きや成績を保証するものではありません。</p>'
+        f"</section>"
+    )
+
+
 def _count_chip(text: str) -> str:
     """「的中2」→「的中 2」のチップ。"""
     m = re.match(r"(\D+)(\d+)$", text)
@@ -515,6 +589,14 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
     report_files = sorted(reports_dir.glob("*.md"), reverse=True)
 
     latest_html = ""
+    premarket = load_premarket(reports_dir / "premarket.json")
+    latest_date = None
+    if report_files:
+        try:
+            latest_date = date.fromisoformat(report_files[0].stem)
+        except ValueError:
+            latest_date = None
+    env_html = _environment_block(premarket, latest_date)
     history_by_month: dict[str, list[str]] = defaultdict(list)
 
     for i, path in enumerate(report_files):
@@ -566,6 +648,7 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
 <div class="meta">{latest_pill}<span class="pill">最終更新<b>{html.escape(generated_at)}</b></span></div>
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
 </header>
+{env_html}
 {latest_html}
 <div class="history-head"><h2 class="section-title">過去のレポート</h2><span class="count">{history_count}日分</span></div>
 {history_section}
