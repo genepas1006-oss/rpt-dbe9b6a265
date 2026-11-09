@@ -221,7 +221,10 @@ details.day-row > summary:hover { background: var(--surface-2); }
 .pk.none { color: var(--text-muted); }
 details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1px solid var(--border); }
 @media (min-width: 860px) {
-  .sides { grid-template-columns: 1fr 1fr; align-items: start; }
+  /* 買い/売りの各ブロック（見出し・前営業日・成績・履歴・候補）を同じ行に揃える */
+  .sides { grid-template-columns: 1fr 1fr; gap: 0 22px; }
+  .sides > .side.paired { display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; }
+  .stat-tile .cap { min-height: 2.8em; line-height: 1.4; }
   .seg-nav { display: none; }
   .hero h1 { font-size: 2rem; }
 }
@@ -555,10 +558,10 @@ def _side_section(
 ) -> str:
     sub = f"TOP{len(candidates)}" if candidates else ""
     sub_html = f'<span class="side-sub">{sub}</span>' if sub else ""
+    # 各ブロックを固定スロットに入れ、買い/売りで行位置を揃える（空でもスロットは常に6個）
     parts = [f'<div class="side-head"><h2 class="side-title">{heading}</h2>{sub_html}</div>']
     parts.append(_previous_block(previous))
-    if stats_lines:
-        parts.append(_stat_row(stats_lines))
+    parts.append(_stat_row(stats_lines) if stats_lines else "")
     parts.append(_unfilled_block(unfilled or []))
     parts.append(_miss_block(missed or []))
     if candidates:
@@ -566,8 +569,9 @@ def _side_section(
         parts.append(f'<div class="card-grid">{cards}</div>')
     else:
         parts.append('<p class="empty-msg">本日は基準を満たす候補がありませんでした。</p>')
+    slots = "".join(f'<div class="slot">{p}</div>' for p in parts)
     id_attr = f' id="side-{side}"' if anchor else ""
-    return f'<section class="side {side}"{id_attr}>{"".join(parts)}</section>'
+    return f'<section class="side paired {side}"{id_attr}>{slots}</section>'
 
 
 def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
