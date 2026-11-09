@@ -62,7 +62,7 @@ def test_A_holiday_target_uses_next_trading_day_buy(tmp_path):
     assert evaluate_pending_predictions(db, _Src([_bar(NEXT, 990, 1010, 1005)]), as_of=NEXT) == 1
     evaluated, filled, target, ret, win = _row(db, "A")
     assert (evaluated, filled, target, win) == (1, 1, "2026-11-04", 1)
-    assert abs(ret - 0.005) < 1e-12  # (1005-1000)/1000
+    assert abs(ret - 15 / 990) < 1e-12  # 寄り990が指値1000より有利 → 990で約定。(1005-990)/990
 
 
 def test_B_holiday_target_sell_unfilled(tmp_path):

@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS predictions (
     target_open REAL,
     market_return REAL,
     miss_causes TEXT,
-    oc_return REAL
+    oc_return REAL,
+    fill_price REAL
 );
 """
 
@@ -62,6 +63,7 @@ EXTRA_COLUMNS = {
     "market_return": "REAL",
     "miss_causes": "TEXT",
     "oc_return": "REAL",  # 2026-11-09: 成行（寄り→引け）のリターン（参考）
+    "fill_price": "REAL",  # 2026-11-09: 寄り値補正後の約定価格（NULLは補正前の評価）
 }
 
 
@@ -206,7 +208,7 @@ def record_evaluation(
         ).fetchone()
         entry_price, side, pred_close, pred_daily_return, pred_volume_ratio = row
 
-        result = evaluate_trade(side, entry_price, target_low, target_high, target_close)
+        result = evaluate_trade(side, entry_price, target_low, target_high, target_close, target_open)
         filled, result_return, is_win = result.filled, result.result_return, result.is_win
 
         # 約定したが的中しなかった予測にだけ原因タグを付ける（予測時の値が記録されている行のみ）
@@ -239,7 +241,8 @@ def record_evaluation(
             SET evaluated = 1, filled = ?, target_low = ?, target_high = ?,
                 target_close = ?, result_return = ?, is_win = ?,
                 target_date = COALESCE(?, target_date),
-                target_open = ?, market_return = ?, miss_causes = ?, oc_return = ?
+                target_open = ?, market_return = ?, miss_causes = ?, oc_return = ?,
+                fill_price = ?
             WHERE id = ?
             """,
             (
@@ -254,6 +257,7 @@ def record_evaluation(
                 market_return,
                 miss_causes,
                 oc_return,
+                result.fill_price,
                 prediction_id,
             ),
         )

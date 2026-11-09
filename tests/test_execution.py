@@ -97,12 +97,12 @@ def test_close_to_close_reference():
 
 
 def test_limit_rules_by_discount():
-    # d=0.5%: 指値 995.0 → 安値985<=995 で約定、(1005-995)/995
+    # d=0.5%: 指値 995.0 → 安値985<=995 で約定。寄り990が指値より有利なので990で約定、(1005-990)/990
     e, r = limit_rule(0.005).evaluate("buy", 1000.0, [DAY0])
-    assert e == 995.0 and r.result_return == pytest.approx(10 / 995)
-    # d=0: 指値 = 終値1000 → 約定、(1005-1000)/1000 = 引け→引けと同じ
+    assert e == 995.0 and r.result_return == pytest.approx(15 / 990)
+    # d=0: 指値 = 終値1000 → 約定。寄り990の方が有利なので990で約定、(1005-990)/990
     e0, r0 = limit_rule(0.0).evaluate("buy", 1000.0, [DAY0])
-    assert e0 == 1000.0 and r0.result_return == pytest.approx(0.005)
+    assert e0 == 1000.0 and r0.result_return == pytest.approx(15 / 990)
     # d=1%: 指値 990.0 → 安値985<=990 で約定、(1005-990)/990
     e1, r1 = limit_rule(0.01).evaluate("buy", 1000.0, [DAY0])
     assert e1 == 990.0 and r1.result_return == pytest.approx(15 / 990)

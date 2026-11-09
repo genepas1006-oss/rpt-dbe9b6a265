@@ -15,6 +15,7 @@ from report.one_point_summary import build_one_point_summary, build_outlook
 from tracking.predictions_db import MarketOrderStats, WinRateStats
 from tracking.missed import MissedPrediction
 from tracking.previous import STATUS_LABEL, STATUS_ORDER, PreviousResults
+from tracking.benchmark import ScoreEffect
 from tracking.unfilled import UnfilledPrediction
 
 
@@ -29,6 +30,16 @@ def _stats_lines(stats: WinRateStats) -> list[str]:
     else:
         lines.append(f"- 的中率（約定分のみ）: {stats.win_rate * 100:.1f}%")
     return lines
+
+
+def _score_effect_lines(effect: ScoreEffect | None) -> list[str]:
+    """TOP5と同日の全銘柄平均の差。優位性の証明ではなく、スコアの効果の目安として出す。"""
+    if effect is None:
+        return []
+    return [
+        f"- 全銘柄平均との差（スコアの効果の目安）: {effect.excess * 100:+.2f}%"
+        f"（TOP5 {effect.top_avg * 100:+.2f}% / 全銘柄 {effect.bench_avg * 100:+.2f}%・{effect.days}日）"
+    ]
 
 
 def _market_order_lines(stats: MarketOrderStats | None) -> list[str]:
@@ -141,6 +152,8 @@ def generate_report(
     sell_market: MarketOrderStats | None = None,
     buy_previous: PreviousResults | None = None,
     sell_previous: PreviousResults | None = None,
+    buy_effect: ScoreEffect | None = None,
+    sell_effect: ScoreEffect | None = None,
 ) -> str:
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
@@ -151,10 +164,12 @@ def generate_report(
         "",
         "## デモ検証成績（買い・現時点までの累計）",
         *_stats_lines(buy_stats),
+        *_score_effect_lines(buy_effect),
         *_market_order_lines(buy_market),
         "",
         "## デモ検証成績（売り・現時点までの累計）",
         *_stats_lines(sell_stats),
+        *_score_effect_lines(sell_effect),
         *_market_order_lines(sell_market),
     ]
     lines += _previous_section("買い", buy_previous)

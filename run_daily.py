@@ -15,7 +15,9 @@ from tracking.virtual_fund import get_default_virtual_fund
 from report.generate_report import generate_report
 from report.notify import notify_windows
 from report.publish import publish_docs
+from tracking.benchmark import compute_missing_benchmarks, get_score_effect
 from tracking.evaluate import evaluate_pending_predictions
+from tracking.refill import backfill_target_open, recompute_fills
 from tracking.market import index_daily_returns
 from tracking.missed import get_missed_predictions
 from tracking.previous import get_previous_results
@@ -56,6 +58,13 @@ def run(prediction_date: date) -> Path:
     evaluate_pending_predictions(
         DB_PATH, source, as_of=prediction_date, market_returns=index_daily_returns(index_bars)
     )
+
+    # 約定価格の補正（寄り値が有利なら寄り値で約定）を過去分にも反映する。失敗しても続ける
+    try:
+        backfill_target_open(DB_PATH, source)
+        recompute_fills(DB_PATH)
+    except Exception as e:  # noqa: BLE001
+        print(f"[refill] 再計算に失敗しました: {e}")
 
     start = prediction_date - timedelta(days=HISTORY_DAYS)
     buy_candidates = []
@@ -106,6 +115,12 @@ def run(prediction_date: date) -> Path:
     except Exception as e:  # noqa: BLE001
         print(f"[market_gaps] 保存に失敗しました: {e}")
 
+    # 同日の全銘柄平均（スコアの効果の目安）。失敗しても続ける
+    try:
+        compute_missing_benchmarks(DB_PATH, all_bars)
+    except Exception as e:  # noqa: BLE001
+        print(f"[benchmark] 計算に失敗しました: {e}")
+
     ranked_buy = rank_candidates(buy_candidates, side="buy")
     ranked_sell = rank_candidates(sell_candidates, side="sell")
     target_date = next_business_day(prediction_date)
@@ -130,6 +145,8 @@ def run(prediction_date: date) -> Path:
         get_market_order_stats(DB_PATH, "sell"),
         get_previous_results(DB_PATH, "buy", prediction_date),
         get_previous_results(DB_PATH, "sell", prediction_date),
+        get_score_effect(DB_PATH, "buy"),
+        get_score_effect(DB_PATH, "sell"),
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"

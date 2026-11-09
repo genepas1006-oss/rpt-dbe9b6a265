@@ -221,7 +221,7 @@ def apply_variant(
             next_bars = {c.code: c.next_bar for c in d.candidates}
             for ranked in rank_candidates(pool, top_n=top_n, entry_discount=entry_discount, side=side):
                 nb = next_bars[ranked.code]
-                result = evaluate_trade(side, ranked.entry_price, nb.low, nb.high, nb.close)
+                result = evaluate_trade(side, ranked.entry_price, nb.low, nb.high, nb.close, nb.open)
                 trades.append(
                     Trade(
                         day=d.day,

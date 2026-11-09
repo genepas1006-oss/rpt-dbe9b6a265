@@ -42,7 +42,7 @@ def _setup(tmp_path):
     save_predictions(db, D_OLD, D_PREV, [_cand("OLD")])  # もっと前の予測日（無視される）
     save_predictions(db, D_PREV, T_PREV, [_cand("A", name="三菱商事"), _cand("B"), _cand("C"), _cand("D")])
     save_predictions(db, D_PREV, T_PREV, [_cand("S", side="sell", price=1005.0)])
-    _eval(db, "A", D_PREV, 990, 985, 1010, 1005)   # 指値995: 約定、終値1005 → +1.005% 的中。成行 (1005-990)/990
+    _eval(db, "A", D_PREV, 990, 985, 1010, 1005)   # 指値995: 約定（寄り990が有利なので990で約定）、終値1005 → (1005-990)/990 的中。成行も同じ
     _eval(db, "B", D_PREV, 1000, 985, 1000, 990)   # 約定、終値990 → -0.5025% 不的中。成行 -1.0%
     _eval(db, "C", D_PREV, 1000, 996, 1005, 1000)  # 安値996>995 → 不成立
     # D は未評価 → 未確定
@@ -60,7 +60,7 @@ def test_previous_results_statuses_order_and_counts(tmp_path):
 
 def test_previous_results_values(tmp_path):
     a, b, c, d = get_previous_results(_setup(tmp_path), "buy", D_TODAY).items
-    assert a.result_return == pytest.approx(10 / 995) and a.oc_return == pytest.approx(15 / 990)
+    assert a.result_return == pytest.approx(15 / 990) and a.oc_return == pytest.approx(15 / 990)
     assert (a.target_open, a.target_close) == (990, 1005)
     assert b.result_return == pytest.approx(-5 / 995) and b.oc_return == pytest.approx(-0.01)
     assert c.result_return is None and c.oc_return == 0.0  # 指値は不成立でも、成行の結果はある
@@ -114,7 +114,7 @@ def test_report_text_format(tmp_path):
     text = _report(tmp_path)
     assert "## 前営業日の結果（買い）" in text
     assert "- 対象: 2026-11-05予測 → 2026-11-06 | 的中1・不的中1・不成立1・未確定1" in text
-    assert "- 1位 | 三菱商事（A） | 的中 | 995.0円 | +1.01% | 始値990.0円 → 終値1,005.0円 | +1.52%" in text
+    assert "- 1位 | 三菱商事（A） | 的中 | 995.0円 | +1.52% | 始値990.0円 → 終値1,005.0円 | +1.52%" in text
     assert "- 2位 | nB（B） | 不的中 | 995.0円 | -0.50% | 始値1,000.0円 → 終値990.0円 | -1.00%" in text
     assert "- 3位 | nC（C） | 不成立 | 995.0円 | - | 始値1,000.0円 → 終値1,000.0円 | +0.00%" in text
     assert "- 4位 | nD（D） | 未確定 | 995.0円 | - | - | -" in text
@@ -159,7 +159,7 @@ def test_site_scoreboard_rows_and_order(tmp_path):
         assert chip in page
     assert '<div class="prev-row win"><span class="rk">1</span><span class="st win">的中</span>' in page
     assert "<b>三菱商事（A）</b><small>指値995.0円 ／ 始値990.0円 → 終値1,005.0円</small>" in page
-    assert '<div class="pr">+1.01%<small>成行 +1.52%</small></div>' in page
+    assert '<div class="pr">+1.52%<small>成行 +1.52%</small></div>' in page
     assert '<div class="pr">約定なし<small>成行 +0.00%</small></div>' in page   # 不成立でも成行の結果は見える
     assert '<div class="pr">-<small></small></div>' in page                       # 未確定
     # 各側の先頭（成績タイルより前）にある

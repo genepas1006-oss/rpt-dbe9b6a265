@@ -64,7 +64,7 @@ def _db(tmp_path):
 def _three_buys(tmp_path):
     db = _db(tmp_path)
     save_predictions(db, D0, T0, [_cand("A"), _cand("B"), _cand("C")])
-    _eval(db, "A", 990, 1005, low=985, high=1010)  # 指値995: 約定(985<=995)。成行 +1.515%、指値 (1005-995)/995
+    _eval(db, "A", 990, 1005, low=985, high=1010)  # 指値995: 約定(985<=995)。寄り990が有利なので990で約定。成行 +1.515%、指値 (1005-990)/990
     _eval(db, "B", 1000, 990, low=985, high=1000)  # 約定。成行 -1.0%、指値 (990-995)/995
     _eval(db, "C", 1000, 1000, low=996, high=1005)  # 安値996>995 → 指値は不成立。成行は 0.0%
     return db
@@ -82,8 +82,8 @@ def test_stats_hand_calc_buy(tmp_path):
     assert (s.count, s.wins) == (3, 1)
     assert s.win_rate == pytest.approx(1 / 3)  # 33.3%（0.0%は的中でない）
     assert s.avg_return == pytest.approx((15 / 990 - 0.01 + 0.0) / 3)  # ≒ +0.1717%
-    # 指値の平均は約定した2件のみ: ((1005-995)/995 + (990-995)/995)/2 ≒ +0.2513%
-    assert s.limit_avg_return == pytest.approx((10 / 995 - 5 / 995) / 2)
+    # 指値の平均は約定した2件のみ: ((1005-990)/990 + (990-995)/995)/2
+    assert s.limit_avg_return == pytest.approx((15 / 990 - 5 / 995) / 2)
 
 
 def test_unfilled_limit_still_counts_in_market_order_count(tmp_path):
@@ -218,13 +218,13 @@ def test_limit_average_uses_only_same_predictions_as_market_stats(tmp_path):
     save_predictions(db, D0, T0, [_cand("OLD"), _cand("NEW"), _cand("UNF")])
     # 始値が未記録の旧データ(約定・+4.02%)は、指値の平均にも入れない
     record_evaluation(db, _pid(db, "OLD"), target_low=985, target_high=1010, target_close=1035)
-    _eval(db, "NEW", 990, 1005, low=985, high=1010)  # 約定 (1005-995)/995
+    _eval(db, "NEW", 990, 1005, low=985, high=1010)  # 約定 寄り990で約定 (1005-990)/990
     _eval(db, "UNF", 1000, 1000, low=996, high=1005)  # 不成立
     s = get_market_order_stats(db, "buy")
-    assert s.limit_avg_return == pytest.approx(10 / 995)  # NEWだけ
+    assert s.limit_avg_return == pytest.approx(15 / 990)  # NEWだけ
     # 防御: 不成立の行に何らかの値が入っていても、約定していなければ平均に入れない
     conn = sqlite3.connect(db)
     conn.execute("UPDATE predictions SET result_return = 0.5 WHERE code = 'UNF'")
     conn.commit()
     conn.close()
-    assert get_market_order_stats(db, "buy").limit_avg_return == pytest.approx(10 / 995)
+    assert get_market_order_stats(db, "buy").limit_avg_return == pytest.approx(15 / 990)

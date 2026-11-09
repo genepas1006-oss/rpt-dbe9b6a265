@@ -43,7 +43,7 @@ def limit_rule(discount: float) -> ExecRule:
     def evaluate(side: Side, close: float, bars: list[DailyBar]):
         entry = round(close * ((1 - discount) if side == "buy" else (1 + discount)), 1)
         b = bars[0]
-        return entry, evaluate_trade(side, entry, b.low, b.high, b.close)
+        return entry, evaluate_trade(side, entry, b.low, b.high, b.close, b.open)
 
     return ExecRule(f"limit{discount * 100:g}%", evaluate)
 
