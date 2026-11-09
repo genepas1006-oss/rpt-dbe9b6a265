@@ -223,7 +223,11 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 @media (min-width: 860px) {
   /* 買い/売りの各ブロック（見出し・前営業日・成績・履歴・候補）を同じ行に揃える */
   .sides { grid-template-columns: 1fr 1fr; gap: 0 22px; }
-  .sides > .side.paired { display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; }
+  /* 上5ブロック＋候補カード5行 = 10行。カードも順位ごとに左右で同じ高さにする */
+  .sides > .side.paired { display: grid; grid-row: span 10; grid-template-rows: subgrid; row-gap: 0; }
+  .side.paired > .slot.cards { grid-row: span 5; display: grid; grid-template-rows: subgrid; row-gap: 10px; }
+  .side.paired > .slot.cards > .card-grid { display: contents; }
+  .side.paired > .slot.cards > .empty-msg { grid-row: 1; }
   .stat-tile .cap { min-height: 2.8em; line-height: 1.4; }
   .seg-nav { display: none; }
   .hero h1 { font-size: 2rem; }
@@ -569,7 +573,9 @@ def _side_section(
         parts.append(f'<div class="card-grid">{cards}</div>')
     else:
         parts.append('<p class="empty-msg">本日は基準を満たす候補がありませんでした。</p>')
-    slots = "".join(f'<div class="slot">{p}</div>' for p in parts)
+    slots = "".join(
+        f'<div class="slot{" cards" if i == len(parts) - 1 else ""}">{p}</div>' for i, p in enumerate(parts)
+    )
     id_attr = f' id="side-{side}"' if anchor else ""
     return f'<section class="side paired {side}"{id_attr}>{slots}</section>'
 
