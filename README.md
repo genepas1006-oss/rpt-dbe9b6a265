@@ -42,6 +42,14 @@ python run_daily.py --date 2026-08-20
 
 **注意**: 日本の祝日（市場休場日）はスケジューラ側では判定していない。休場日に実行された場合、対象銘柄の当日データが取得できず「候補なし」のレポートになる想定（システムとしてはエラーにはならない）。
 
+### 2026-11-09: 朝の環境認識の自動更新（任意）
+
+- 平日8:30（日本時間）に `run_premarket.bat` を実行するタスク `JpStockPremarket` を登録する:
+  PowerShellで `powershell -ExecutionPolicy Bypass -File .\register_premarket_task.ps1`（1回だけ）。
+  PCが8:30に起きていなかった場合は、起動後にすぐ実行される。ログは `logs\run_premarket.log`。
+- 今すぐ試す: `Start-ScheduledTask -TaskName JpStockPremarket`。外す: `Unregister-ScheduledTask -TaskName JpStockPremarket -Confirm:$false`。
+- 15:35の日次実行（`run_daily.bat`）とは別のタスク。環境認識の枠だけを更新し、候補・予測・成績には触れない。
+
 ### 2026-11-09: ダブルクリックで実行するときは `run_daily_manual.bat` を使う
 
 - `run_daily.py` を直接ダブルクリックすると、仮想環境（`.venv`）ではなく別のPythonで動き、ライブラリ不足などのエラーで
