@@ -9,7 +9,7 @@
     - 手数料・スリッページは含まない。
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Callable
 
@@ -20,6 +20,9 @@ from analysis.technical import compute_short_technical_score, compute_technical_
 from config import ENTRY_DISCOUNT, TOP_N
 from data_sources.base import DailyBar
 from tracking.trade_eval import evaluate_trade
+
+
+FUTURE_BARS = 3
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,8 @@ class DayCandidate:
     buy: CandidateInput
     sell: CandidateInput
     next_bar: DailyBar
+    # 次の次の営業日以降の足（持ち越し検証用）。選定には使わないので、等価比較から外す。
+    future_bars: tuple[DailyBar, ...] = field(default=(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -119,6 +124,7 @@ def build_trading_days(
                         compute_short_earnings_score(history, known_earnings),
                     ),
                     next_bar=bars[next_idx],
+                    future_bars=tuple(bars[next_idx + 1 : next_idx + 1 + FUTURE_BARS]),
                 )
             )
         days.append(TradingDay(day=today, next_day=next_day, candidates=candidates))

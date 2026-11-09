@@ -26,7 +26,8 @@ from backtest.engine import (
     split_days,
     summarize,
 )
-from backtest.report import build_markdown
+from backtest.execution import apply_rule, default_rules
+from backtest.report import build_execution_markdown, build_markdown
 from config import NIKKEI225
 from data_sources.base import DailyBar
 from data_sources.yfinance_source import YFinanceSource
@@ -35,6 +36,7 @@ HISTORY_DAYS = 900
 INDEX_SYMBOL = "^N225"
 CACHE_PATH = Path("data/backtest_cache.json")
 RESULT_PATH = Path("data/backtest_result.md")
+EXECUTION_RESULT_PATH = Path("data/backtest_execution.md")
 
 DEV_THRESHOLDS = (0.05, 0.08, 0.10, 0.15)
 RSI_THRESHOLDS = (60, 70, 80)
@@ -95,9 +97,27 @@ def build_variants() -> list[Variant]:
     return [baseline(), *singles, *combos, *reverse]
 
 
+def run_execution(train_days, valid_days, labels) -> None:
+    selections = [("top", baseline(), "top"), ("reversal", reversal(), "top"), ("all", baseline(), "all")]
+    results = {}
+    for rule in default_rules():
+        for label, variant, select in selections:
+            name = f"{label} / {rule.name}"
+            print(f"  検証: {name}")
+            results[name] = {}
+            for period, period_days in (("train", train_days), ("valid", valid_days)):
+                trades = apply_rule(period_days, variant, rule, select)
+                results[name][period] = {"buy": summarize(trades, "buy"), "sell": summarize(trades, "sell")}
+    markdown = build_execution_markdown(results, labels)
+    EXECUTION_RESULT_PATH.write_text(markdown, encoding="utf-8")
+    print(markdown)
+    print(f"\n結果を保存しました: {EXECUTION_RESULT_PATH}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="地合い・過熱度フィルターのバックテスト")
     parser.add_argument("--refresh", action="store_true", help="キャッシュを捨てて取得し直す")
+    parser.add_argument("--execution", action="store_true", help="約定方法（指値/成行/持ち越し/利確損切り）を比較する")
     parser.add_argument("--no-earnings", action="store_true", help="決算日の取得を省略する")
     args = parser.parse_args()
 
@@ -114,6 +134,10 @@ def main() -> int:
         "train": f"前半（{train_days[0].day}〜{train_days[-1].day}）",
         "valid": f"後半（{valid_days[0].day}〜{valid_days[-1].day}）",
     }
+
+    if args.execution:
+        run_execution(train_days, valid_days, labels)
+        return 0
 
     results = {}
     for variant in build_variants():

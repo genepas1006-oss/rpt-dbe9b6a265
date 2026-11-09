@@ -65,3 +65,34 @@ def build_markdown(results: Results, period_labels: dict[str, str]) -> str:
                 )
             lines.append("")
     return "\n".join(lines)
+
+
+def build_execution_markdown(results: Results, period_labels: dict[str, str]) -> str:
+    """約定方法×選び方の比較表。results のキーは「選び方 / 約定方法」。"""
+    lines = [
+        "# 約定方法の比較バックテスト",
+        "",
+        "選び方: top=スコア上位5件 / reversal=逆張りの上位5件 / all=全候補の平均（スコア不問の比較用基準）。",
+        "約定率は、成行の条件では100%。平均リターン・的中率は約定した取引のみ。手数料・スリッページは含まない。",
+        "◎ は、前半・後半の両方で平均リターンがプラスの条件（偶然を含み得る。デモ期間での追跡が必要）。",
+        "（結果は過去の傾向であり、将来の成績を保証するものではありません。）",
+        "",
+    ]
+    for side, label in (("buy", "買い"), ("sell", "売り")):
+        for period in ("train", "valid"):
+            lines += [
+                f"## {label} / {period_labels[period]}",
+                "",
+                "| 条件 | 取引数 | 約定率 | 的中率 | 平均リターン | 平均勝ち | 平均負け | 勝ち幅÷負け幅 | |",
+                "|---|---|---|---|---|---|---|---|---|",
+            ]
+            for name, by_period in results.items():
+                m = by_period[period][side]
+                mark = "◎" if positive_both(results, name, side) else ""
+                lines.append(
+                    f"| {name} | {m.count} | {_pct(m.fill_rate)} | {_pct(m.win_rate)} | "
+                    f"{_pct(m.avg_return, 2)} | {_pct(m.avg_win, 2)} | {_pct(m.avg_loss, 2)} | "
+                    f"{_num(m.payoff_ratio)} | {mark} |"
+                )
+            lines.append("")
+    return "\n".join(lines)
