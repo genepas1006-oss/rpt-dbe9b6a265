@@ -67,13 +67,16 @@ def build_markdown(results: Results, period_labels: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def build_execution_markdown(results: Results, period_labels: dict[str, str]) -> str:
+def build_execution_markdown(
+    results: Results, period_labels: dict[str, str], title: str = "約定方法の比較バックテスト", cost_note: str | None = None
+) -> str:
     """約定方法×選び方の比較表。results のキーは「選び方 / 約定方法」。"""
     lines = [
-        "# 約定方法の比較バックテスト",
+        f"# {title}",
         "",
         "選び方: top=スコア上位5件 / reversal=逆張りの上位5件 / all=全候補の平均（スコア不問の比較用基準）。",
-        "約定率は、成行の条件では100%。平均リターン・的中率は約定した取引のみ。手数料・スリッページは含まない。",
+        "約定率は、成行の条件では100%。平均リターン・的中率は約定した取引のみ。"
+        + (cost_note or "手数料・スリッページは含まない。"),
         "◎ は、前半・後半の両方で平均リターンがプラスの条件（偶然を含み得る。デモ期間での追跡が必要）。",
         "（結果は過去の傾向であり、将来の成績を保証するものではありません。）",
         "",

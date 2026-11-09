@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS predictions (
     pred_volume_ratio REAL,
     target_open REAL,
     market_return REAL,
-    miss_causes TEXT
+    miss_causes TEXT,
+    oc_return REAL
 );
 """
 
@@ -60,6 +61,7 @@ EXTRA_COLUMNS = {
     "target_open": "REAL",
     "market_return": "REAL",
     "miss_causes": "TEXT",
+    "oc_return": "REAL",  # 2026-11-09: 成行（寄り→引け）のリターン（参考）
 }
 
 
@@ -222,13 +224,22 @@ def record_evaluation(
                 ensure_ascii=False,
             )
 
+        # 成行（翌営業日の始値で入り、同日の終値で決済）の参考リターン。必ず約定する前提
+        oc_return = None
+        if target_open is not None and target_open > 0:
+            oc_return = (
+                (target_open - target_close) / target_open
+                if side == "sell"
+                else (target_close - target_open) / target_open
+            )
+
         conn.execute(
             """
             UPDATE predictions
             SET evaluated = 1, filled = ?, target_low = ?, target_high = ?,
                 target_close = ?, result_return = ?, is_win = ?,
                 target_date = COALESCE(?, target_date),
-                target_open = ?, market_return = ?, miss_causes = ?
+                target_open = ?, market_return = ?, miss_causes = ?, oc_return = ?
             WHERE id = ?
             """,
             (
@@ -242,6 +253,7 @@ def record_evaluation(
                 target_open,
                 market_return,
                 miss_causes,
+                oc_return,
                 prediction_id,
             ),
         )
@@ -279,4 +291,40 @@ def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
     win_rate = wins / filled if filled > 0 else None
     return WinRateStats(
         total_predictions=total, filled_count=filled, win_count=wins, win_rate=win_rate
+    )
+
+
+@dataclass(frozen=True)
+class MarketOrderStats:
+    """成行（寄り→引け）で入った場合の参考成績（始値が記録された予測のみ）。"""
+
+    count: int
+    wins: int
+    win_rate: float | None
+    avg_return: float | None
+    limit_avg_return: float | None  # 同じ予測のうち、指値が約定した分の平均リターン
+
+
+def get_market_order_stats(db_path: str, side: Side) -> MarketOrderStats:
+    """成行は必ず約定する前提のため、指値が不成立だった予測も件数に含める。的中はリターン>0。"""
+    conn = sqlite3.connect(db_path)
+    try:
+        count, wins, avg = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(oc_return > 0), 0), AVG(oc_return) FROM predictions "
+            "WHERE evaluated = 1 AND oc_return IS NOT NULL AND side = ?",
+            (side,),
+        ).fetchone()
+        limit_avg = conn.execute(
+            "SELECT AVG(result_return) FROM predictions "
+            "WHERE evaluated = 1 AND filled = 1 AND oc_return IS NOT NULL AND side = ?",
+            (side,),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    return MarketOrderStats(
+        count=count,
+        wins=wins,
+        win_rate=wins / count if count else None,
+        avg_return=avg,
+        limit_avg_return=limit_avg,
     )

@@ -104,8 +104,13 @@ def apply_rule(
     rule: ExecRule,
     select: str = "top",
     top_n: int = TOP_N,
+    cost: float = 0.0,
 ) -> list[Trade]:
-    """variantで候補を絞り、selectで選び、ruleで答え合わせした取引一覧を返す。"""
+    """variantで候補を絞り、selectで選び、ruleで答え合わせした取引一覧を返す。
+
+    cost: 約定した取引ごとに差し引く往復の費用（取引額に対する割合）。的中は費用後のリターン>0。
+    不成立の取引には費用をかけない。
+    """
     if select not in ("top", "all"):
         raise ValueError(f"select must be 'top' or 'all': {select}")
     trades: list[Trade] = []
@@ -129,6 +134,9 @@ def apply_rule(
                 if evaluated is None:
                     continue
                 entry, result = evaluated
+                if cost and result.filled and result.result_return is not None:
+                    net = result.result_return - cost
+                    result = TradeResult(filled=True, result_return=net, is_win=net > 0)
                 trades.append(
                     Trade(
                         day=d.day,

@@ -27,6 +27,7 @@ from backtest.engine import (
     summarize,
 )
 from backtest.execution import apply_rule, default_rules
+from backtest.execution import limit_rule, open_close_rule, open_hold_rule
 from backtest.report import build_execution_markdown, build_markdown
 from config import NIKKEI225
 from data_sources.base import DailyBar
@@ -37,6 +38,8 @@ INDEX_SYMBOL = "^N225"
 CACHE_PATH = Path("data/backtest_cache.json")
 RESULT_PATH = Path("data/backtest_result.md")
 EXECUTION_RESULT_PATH = Path("data/backtest_execution.md")
+COST_RESULT_PATH = Path("data/backtest_cost.md")
+COSTS = (0.0, 0.0005, 0.001, 0.002)
 
 DEV_THRESHOLDS = (0.05, 0.08, 0.10, 0.15)
 RSI_THRESHOLDS = (60, 70, 80)
@@ -97,6 +100,30 @@ def build_variants() -> list[Variant]:
     return [baseline(), *singles, *combos, *reverse]
 
 
+def run_cost(train_days, valid_days, labels) -> None:
+    selections = [("top", baseline(), "top"), ("reversal", reversal(), "top"), ("all", baseline(), "all")]
+    rules = [open_close_rule(), open_hold_rule(2), open_hold_rule(3), limit_rule(0.005)]
+    results = {}
+    for rule in rules:
+        for label, variant, select in selections:
+            for cost in COSTS:
+                name = f"{label} / {rule.name} / 費用{cost * 100:g}%"
+                print(f"  検証: {name}")
+                results[name] = {}
+                for period, period_days in (("train", train_days), ("valid", valid_days)):
+                    trades = apply_rule(period_days, variant, rule, select, cost=cost)
+                    results[name][period] = {"buy": summarize(trades, "buy"), "sell": summarize(trades, "sell")}
+    markdown = build_execution_markdown(
+        results,
+        labels,
+        title="費用を引いた成績の比較バックテスト",
+        cost_note="往復の費用（0/0.05/0.1/0.2%）を約定した取引ごとに差し引いている。的中は費用後のリターン>0。",
+    )
+    COST_RESULT_PATH.write_text(markdown, encoding="utf-8")
+    print(markdown)
+    print(f"\n結果を保存しました: {COST_RESULT_PATH}")
+
+
 def run_execution(train_days, valid_days, labels) -> None:
     selections = [("top", baseline(), "top"), ("reversal", reversal(), "top"), ("all", baseline(), "all")]
     results = {}
@@ -118,6 +145,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="地合い・過熱度フィルターのバックテスト")
     parser.add_argument("--refresh", action="store_true", help="キャッシュを捨てて取得し直す")
     parser.add_argument("--execution", action="store_true", help="約定方法（指値/成行/持ち越し/利確損切り）を比較する")
+    parser.add_argument("--cost", action="store_true", help="往復の費用（0/0.05/0.1/0.2%）を引いた成績を比較する")
     parser.add_argument("--no-earnings", action="store_true", help="決算日の取得を省略する")
     args = parser.parse_args()
 
@@ -134,6 +162,10 @@ def main() -> int:
         "train": f"前半（{train_days[0].day}〜{train_days[-1].day}）",
         "valid": f"後半（{valid_days[0].day}〜{valid_days[-1].day}）",
     }
+
+    if args.cost:
+        run_cost(train_days, valid_days, labels)
+        return 0
 
     if args.execution:
         run_execution(train_days, valid_days, labels)

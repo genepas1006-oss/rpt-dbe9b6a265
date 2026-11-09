@@ -12,7 +12,7 @@ from datetime import date
 
 from analysis.scoring import RankedCandidate
 from report.one_point_summary import build_one_point_summary, build_outlook
-from tracking.predictions_db import WinRateStats
+from tracking.predictions_db import MarketOrderStats, WinRateStats
 from tracking.missed import MissedPrediction
 from tracking.unfilled import UnfilledPrediction
 
@@ -27,6 +27,19 @@ def _stats_lines(stats: WinRateStats) -> list[str]:
         lines.append("- 的中率（約定分のみ）: データなし")
     else:
         lines.append(f"- 的中率（約定分のみ）: {stats.win_rate * 100:.1f}%")
+    return lines
+
+
+def _market_order_lines(stats: MarketOrderStats | None) -> list[str]:
+    """成行（寄り→引け）の参考成績。始値が記録された予測が1件もなければ出さない。"""
+    if stats is None or stats.count == 0:
+        return []
+    lines = [
+        f"- 成行（寄り→引け）の的中率（参考）: {stats.win_rate * 100:.1f}%（{stats.count}件）",
+        f"- 成行（寄り→引け）の平均リターン（参考）: {stats.avg_return * 100:+.2f}%",
+    ]
+    if stats.limit_avg_return is not None:
+        lines.append(f"- 指値の平均リターン（同じ予測・約定分）: {stats.limit_avg_return * 100:+.2f}%")
     return lines
 
 
@@ -96,6 +109,8 @@ def generate_report(
     sell_unfilled: list[UnfilledPrediction] | None = None,
     buy_missed: list[MissedPrediction] | None = None,
     sell_missed: list[MissedPrediction] | None = None,
+    buy_market: MarketOrderStats | None = None,
+    sell_market: MarketOrderStats | None = None,
 ) -> str:
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
@@ -106,9 +121,11 @@ def generate_report(
         "",
         "## デモ検証成績（買い・現時点までの累計）",
         *_stats_lines(buy_stats),
+        *_market_order_lines(buy_market),
         "",
         "## デモ検証成績（売り・現時点までの累計）",
         *_stats_lines(sell_stats),
+        *_market_order_lines(sell_market),
     ]
     lines += _unfilled_section("買い", buy_unfilled or [])
     lines += _unfilled_section("売り", sell_unfilled or [])

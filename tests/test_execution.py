@@ -258,3 +258,86 @@ def test_tp_sl_touching_exactly_counts_as_hit():
     # 届かない（1銭手前）なら終値で決済
     _, r5 = open_tp_sl_rule(0.01, 0.01).evaluate("buy", entry, [_bar(entry, tp_price - 0.01, sl_price + 0.01, 1003)])
     assert r5.result_return == pytest.approx(0.003)
+
+
+# ---------------- 費用（2026-11-09承認） ----------------
+from backtest.engine import Trade  # noqa: E402
+
+
+def _tr(side, o, c):
+    entry, r = open_close_rule().evaluate(side, o, [_bar(o, max(o, c), min(o, c), c)])
+    return r.result_return
+
+
+def _one_day(o, c, cost):
+    """始値o→終値c の1銘柄・1日だけのデータで、買い・売りの取引を {side: Trade} で返す。"""
+    from analysis.scoring import CandidateInput
+    from analysis.technical import TechnicalScore
+    from backtest.engine import DayCandidate, Features, TradingDay
+
+    tech = TechnicalScore(2.0, 0.0, 0.5, 5, 0, 0, 5, [])
+    ci = CandidateInput("X", "X", 1000.0, tech, None)
+    bar = DailyBar(D, o, max(o, c), min(o, c), c, 1)
+    day = TradingDay(D, D, [DayCandidate("X", Features(1, None, None), ci, ci, bar)])
+    return {t.side: t for t in apply_rule([day], baseline(), open_close_rule(), "all", cost=cost)}
+
+
+def test_cost_hand_calc_examples():
+    # 例1: 買い 990→1005 +1.515% → 費用0.1%で +1.415%（勝ち）
+    t = _one_day(990, 1005, 0.001)
+    assert t["buy"].result_return == pytest.approx(15 / 990 - 0.001) and t["buy"].is_win is True
+    # 例2: 売り 990→1005 -1.515% → -1.615%（負け）
+    assert t["sell"].result_return == pytest.approx(-15 / 990 - 0.001) and t["sell"].is_win is False
+    # 例3: 買い 1000→1000.5 +0.05% → -0.05%（勝ち→負け）。費用なしなら勝ち
+    t3 = _one_day(1000, 1000.5, 0.001)["buy"]
+    assert t3.result_return == pytest.approx(0.0005 - 0.001) and t3.is_win is False
+    assert _one_day(1000, 1000.5, 0.0)["buy"].is_win is True
+    # 例4: 買い 1000→1000 0.0% → -0.1%（負け）
+    t4 = _one_day(1000, 1000, 0.001)["buy"]
+    assert t4.result_return == pytest.approx(-0.001) and t4.is_win is False
+
+
+def test_cost_example_average_of_three_trades():
+    # 3件(+1.515%, -1.0%, +0.05%) をc=0.1%で: 平均 (1.415 - 1.1 - 0.05)/3 = +0.0883%、的中1件
+    rets = [15 / 990, -0.01, 0.0005]
+    net = [r - 0.001 for r in rets]
+    assert sum(net) / 3 == pytest.approx(0.000883, abs=1e-6)
+    assert sum(1 for r in net if r > 0) == 1
+
+
+def test_cost_zero_is_identical_and_cost_shifts_average_exactly():
+    days = _days()
+    key = lambda t: (t.day, t.side, t.code, t.entry_price, t.filled, t.result_return, t.is_win)  # noqa: E731
+    a = sorted(map(key, apply_rule(days, baseline(), open_close_rule(), "all")), key=repr)
+    b = sorted(map(key, apply_rule(days, baseline(), open_close_rule(), "all", cost=0.0)), key=repr)
+    assert a == b
+    for rule in (open_close_rule(), limit_rule(0.005)):
+        m0 = summarize(apply_rule(days, baseline(), rule, "all", cost=0.0), "buy")
+        m1 = summarize(apply_rule(days, baseline(), rule, "all", cost=0.001), "buy")
+        assert m1.avg_return == pytest.approx(m0.avg_return - 0.001)  # ちょうど費用の分だけ下がる
+        assert m1.filled == m0.filled
+
+
+def test_cost_not_charged_on_unfilled_trades():
+    days = _days(after={25: (104, 107, 104, 106, 100)})  # 翌日Aの安値104 → 買い指値103.5に届かず不成立
+    t = next(
+        t for t in apply_rule(days, baseline(), limit_rule(0.005), "top", top_n=1, cost=0.01)
+        if t.day == DATES[T] and t.side == "buy"
+    )
+    assert (t.filled, t.result_return, t.is_win) == (False, None, None)
+
+
+def test_cost_lowers_win_rate_monotonically():
+    days = _days()
+    rates = []
+    for c in (0.0, 0.01, 0.03, 0.10):
+        m = summarize(apply_rule(days, baseline(), open_close_rule(), "all", cost=c), "buy")
+        rates.append(m.win_rate)
+    assert rates == sorted(rates, reverse=True)
+    assert rates[-1] == 0.0  # 10%の費用では誰も勝てない
+
+
+def test_execution_markdown_custom_title_and_note():
+    md = build_execution_markdown({"x": {p: {"buy": _m(0.0), "sell": _m(0.0)} for p in ("train", "valid")}},
+                                  {"train": "前半", "valid": "後半"}, title="費用比較", cost_note="費用を引いている。")
+    assert md.startswith("# 費用比較") and "費用を引いている。" in md and "含まない" not in md

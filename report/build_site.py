@@ -204,15 +204,18 @@ def _stat_row(lines: list[str]) -> str:
             sub = "（" + rest
         bar = ""
         feature = ""
-        pct = _PCT_RE.search(val) if "的中率" in cap else None
+        pct = _PCT_RE.search(val) if cap.startswith("的中率") else None
         if pct:
             feature = " feature"
             width = max(0.0, min(100.0, float(pct.group(1))))
             bar = f'<div class="bar"><i style="width:{width:.1f}%"></i></div>'
         sub_html = f'<span class="sub">{html.escape(sub)}</span>' if sub else ""
+        # リターン（損益）の符号は、値上がり=赤・値下がり=緑の配色と紛らわしいので色を付けない
+        escaped = html.escape(main.strip())
+        value_html = escaped if "リターン" in cap else color_deltas(escaped)
         tile = (
             f'<div class="stat-tile{feature}"><span class="cap">{html.escape(cap)}</span>'
-            f'<span class="val">{color_deltas(html.escape(main.strip()))}{sub_html}</span>{bar}</div>'
+            f'<span class="val">{value_html}{sub_html}</span>{bar}</div>'
         )
         tiles.append((0 if feature else 1, tile))
     tiles.sort(key=lambda t: t[0])  # 的中率を先頭の大きなタイルにする

@@ -16,7 +16,7 @@ from report.publish import publish_docs
 from tracking.evaluate import evaluate_pending_predictions
 from tracking.market import index_daily_returns
 from tracking.missed import get_missed_predictions
-from tracking.predictions_db import get_win_rate_stats, init_db, replace_predictions
+from tracking.predictions_db import get_market_order_stats, get_win_rate_stats, init_db, replace_predictions
 from tracking.unfilled import get_unfilled_predictions
 
 DB_PATH = "data/predictions.db"
@@ -112,6 +112,8 @@ def run(prediction_date: date) -> Path:
         get_unfilled_predictions(DB_PATH, "sell"),
         get_missed_predictions(DB_PATH, "buy"),
         get_missed_predictions(DB_PATH, "sell"),
+        get_market_order_stats(DB_PATH, "buy"),
+        get_market_order_stats(DB_PATH, "sell"),
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"
