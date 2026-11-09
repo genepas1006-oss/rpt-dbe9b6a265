@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS predictions (
     market_return REAL,
     miss_causes TEXT,
     oc_return REAL,
-    fill_price REAL
+    fill_price REAL,
+    data_anomaly INTEGER NOT NULL DEFAULT 0
 );
 """
 
@@ -64,7 +65,20 @@ EXTRA_COLUMNS = {
     "miss_causes": "TEXT",
     "oc_return": "REAL",  # 2026-11-09: 成行（寄り→引け）のリターン（参考）
     "fill_price": "REAL",  # 2026-11-09: 寄り値補正後の約定価格（NULLは補正前の評価）
+    "data_anomaly": "INTEGER NOT NULL DEFAULT 0",  # 2026-11-10: 株式分割などの疑いで成績から除外する行
 }
+
+# 承認済み（2026-11-10）: 予測日終値に対する対象日終値の比 r が、r < 0.65 または r > 1.5 なら
+# 株式分割などによるデータ異常の疑いとして成績・仮想資金・全銘柄平均との比較から除外する。
+ANOMALY_LOW = 0.65
+ANOMALY_HIGH = 1.5
+
+
+def is_data_anomaly(pred_close: float | None, target_close: float | None) -> bool:
+    if not pred_close or pred_close <= 0 or target_close is None:
+        return False
+    ratio = target_close / pred_close
+    return ratio < ANOMALY_LOW or ratio > ANOMALY_HIGH
 
 
 def init_db(db_path: str) -> None:
@@ -235,6 +249,7 @@ def record_evaluation(
                 else (target_close - target_open) / target_open
             )
 
+        anomaly = int(is_data_anomaly(pred_close or entry_price, target_close))  # 予測日終値が未記録なら指値で代用
         conn.execute(
             """
             UPDATE predictions
@@ -242,7 +257,7 @@ def record_evaluation(
                 target_close = ?, result_return = ?, is_win = ?,
                 target_date = COALESCE(?, target_date),
                 target_open = ?, market_return = ?, miss_causes = ?, oc_return = ?,
-                fill_price = ?
+                fill_price = ?, data_anomaly = ?
             WHERE id = ?
             """,
             (
@@ -258,6 +273,7 @@ def record_evaluation(
                 miss_causes,
                 oc_return,
                 result.fill_price,
+                anomaly,
                 prediction_id,
             ),
         )
@@ -272,13 +288,14 @@ class WinRateStats:
     filled_count: int
     win_count: int
     win_rate: float | None  # filled_countが0の場合はNone
+    excluded_count: int = 0  # データ異常（株式分割の疑い）で除外した件数
 
 
 def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
     """side指定時はその方向のみ、省略時は買い売り合算で集計する。"""
     conn = sqlite3.connect(db_path)
     try:
-        where = "WHERE evaluated = 1" + (" AND side = ?" if side else "")
+        where = "WHERE evaluated = 1 AND data_anomaly = 0" + (" AND side = ?" if side else "")
         params = (side,) if side else ()
         total = conn.execute(
             f"SELECT COUNT(*) FROM predictions {where}", params
@@ -289,12 +306,21 @@ def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
         wins = conn.execute(
             f"SELECT COUNT(*) FROM predictions {where} AND is_win = 1", params
         ).fetchone()[0]
+        excluded = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE evaluated = 1 AND data_anomaly = 1"
+            + (" AND side = ?" if side else ""),
+            params,
+        ).fetchone()[0]
     finally:
         conn.close()
 
     win_rate = wins / filled if filled > 0 else None
     return WinRateStats(
-        total_predictions=total, filled_count=filled, win_count=wins, win_rate=win_rate
+        total_predictions=total,
+        filled_count=filled,
+        win_count=wins,
+        win_rate=win_rate,
+        excluded_count=excluded,
     )
 
 
@@ -315,12 +341,12 @@ def get_market_order_stats(db_path: str, side: Side) -> MarketOrderStats:
     try:
         count, wins, avg = conn.execute(
             "SELECT COUNT(*), COALESCE(SUM(oc_return > 0), 0), AVG(oc_return) FROM predictions "
-            "WHERE evaluated = 1 AND oc_return IS NOT NULL AND side = ?",
+            "WHERE evaluated = 1 AND data_anomaly = 0 AND oc_return IS NOT NULL AND side = ?",
             (side,),
         ).fetchone()
         limit_avg = conn.execute(
             "SELECT AVG(result_return) FROM predictions "
-            "WHERE evaluated = 1 AND filled = 1 AND oc_return IS NOT NULL AND side = ?",
+            "WHERE evaluated = 1 AND data_anomaly = 0 AND filled = 1 AND oc_return IS NOT NULL AND side = ?",
             (side,),
         ).fetchone()[0]
     finally:

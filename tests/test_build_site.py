@@ -167,3 +167,25 @@ def test_fund_block_before_first_result_and_none():
     html_ = _fund_block(VirtualFund(1_000_000.0, []))
     assert "1,000,000円" in html_ and "—" in html_
     assert _fund_block(None) == ""
+
+
+def test_premarket_empty_report_is_hidden_but_other_empty_reports_stay(tmp_path):
+    from tracking.previous import PreviousItem, PreviousResults
+
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    _write_report(reports_dir, "2026-10-26", [_candidate("buy")], [_candidate("sell")])
+    pending = PreviousResults(
+        date(2026, 10, 26), date(2026, 10, 27),
+        [PreviousItem(1, "6954", "ファナック", 5608.8, "pending", None, None, None, None)],
+    )
+    # 取引前に作られた空のレポート: 候補なし、前営業日の結果は全て未確定
+    (reports_dir / "2026-10-27.md").write_text(
+        generate_report(date(2026, 10, 27), date(2026, 10, 28), [], [], STATS, STATS, buy_previous=pending),
+        encoding="utf-8",
+    )
+    # 前営業日の情報がない空のレポートは、従来どおり載せる
+    _write_report(reports_dir, "2026-10-29", [], [])
+    page = build_index(reports_dir, tmp_path / "docs", "x").read_text(encoding="utf-8")
+    assert "<b>2026-10-27</b>" not in page
+    assert "10/26" in page and "<b>2026-10-29</b>" in page

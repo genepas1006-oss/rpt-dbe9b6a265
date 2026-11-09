@@ -29,6 +29,8 @@ def _stats_lines(stats: WinRateStats) -> list[str]:
         lines.append("- 的中率（約定分のみ）: データなし")
     else:
         lines.append(f"- 的中率（約定分のみ）: {stats.win_rate * 100:.1f}%")
+    if stats.excluded_count:
+        lines.append(f"- データ異常で除外（株式分割の疑い）: {stats.excluded_count}件")
     return lines
 
 

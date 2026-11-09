@@ -57,7 +57,7 @@ def get_virtual_fund(db_path: str, start_date: date, initial: float, slots: int)
     conn = sqlite3.connect(db_path)
     try:
         rows = conn.execute(
-            "SELECT prediction_date, target_date, side, evaluated, filled, result_return "
+            "SELECT prediction_date, target_date, side, evaluated, filled, result_return, data_anomaly "
             "FROM predictions WHERE prediction_date >= ? ORDER BY prediction_date, id",
             (start_date.isoformat(),),
         ).fetchall()
@@ -77,8 +77,8 @@ def get_virtual_fund(db_path: str, start_date: date, initial: float, slots: int)
         allocation = balance / slots
         buy_pnl = sell_pnl = 0.0
         filled_count = 0
-        for _, _, side, _, filled, result_return in day_rows:
-            if not filled or result_return is None:
+        for _, _, side, _, filled, result_return, anomaly in day_rows:
+            if anomaly or not filled or result_return is None:  # データ異常（株式分割の疑い）の行は損益に含めない
                 continue
             filled_count += 1
             pnl = allocation * result_return

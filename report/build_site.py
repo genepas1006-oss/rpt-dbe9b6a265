@@ -709,6 +709,13 @@ def _day_row(stem: str, parsed: ParsedReport, body: str) -> str:
     )
 
 
+def _is_premarket_empty(parsed: ParsedReport) -> bool:
+    if parsed.buy_candidates or parsed.sell_candidates:
+        return False
+    items = [i for prev in (parsed.buy_previous, parsed.sell_previous) if prev for i in prev.items]
+    return bool(items) and all(i.status == "未確定" for i in items)
+
+
 def build_index(
     reports_dir: Path,
     docs_dir: Path,
@@ -718,7 +725,13 @@ def build_index(
 ) -> Path:
     docs_dir.mkdir(parents=True, exist_ok=True)
 
-    report_files = sorted(reports_dir.glob("*.md"), reverse=True)
+    # 市場の取引前に作られた空のレポート（買い・売りとも候補なし、かつ前営業日の結果が全て未確定）は載せない
+    parsed_by_path = {}
+    for path in sorted(reports_dir.glob("*.md"), reverse=True):
+        parsed = parse_report(path.read_text(encoding="utf-8"))
+        if not _is_premarket_empty(parsed):
+            parsed_by_path[path] = parsed
+    report_files = list(parsed_by_path)
 
     latest_html = ""
     premarket = load_premarket(reports_dir / "premarket.json")
@@ -732,7 +745,7 @@ def build_index(
     history_by_month: dict[str, list[str]] = defaultdict(list)
 
     for i, path in enumerate(report_files):
-        parsed = parse_report(path.read_text(encoding="utf-8"))
+        parsed = parsed_by_path[path]
         body = _render_report(parsed, latest=(i == 0))
         if i == 0:
             latest_html = f'<div class="report latest">{body}</div>'

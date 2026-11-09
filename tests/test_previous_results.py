@@ -179,7 +179,8 @@ def test_site_escapes_names(tmp_path):
     db = str(tmp_path / "x.db")
     init_db(db)
     save_predictions(db, D_PREV, T_PREV, [_cand("E", name="A&B<社>")])
-    text = generate_report(D_TODAY, date(2026, 11, 9), [], [], STATS, STATS,
+    # 候補なし・前営業日が全て未確定のレポートは「取引前の空レポート」として載せないため、候補を1件入れる
+    text = generate_report(D_TODAY, date(2026, 11, 9), [_cand("Z")], [], STATS, STATS,
                            buy_previous=get_previous_results(db, "buy", D_TODAY))
     reports = tmp_path / "reports"
     reports.mkdir()

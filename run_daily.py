@@ -17,7 +17,7 @@ from report.notify import notify_windows
 from report.publish import publish_docs
 from tracking.benchmark import compute_missing_benchmarks, get_score_effect
 from tracking.evaluate import evaluate_pending_predictions
-from tracking.refill import backfill_target_open, recompute_fills, repair_inconsistent_opens
+from tracking.refill import backfill_target_open, flag_anomalies, recompute_fills, repair_inconsistent_opens
 from tracking.market import index_daily_returns
 from tracking.missed import get_missed_predictions
 from tracking.previous import get_previous_results
@@ -76,6 +76,7 @@ def run(prediction_date: date) -> Path:
         repair_inconsistent_opens(DB_PATH)
         backfill_target_open(DB_PATH, source)
         recompute_fills(DB_PATH)
+        flag_anomalies(DB_PATH)
     except Exception as e:  # noqa: BLE001
         print(f"[refill] 再計算に失敗しました: {e}")
 

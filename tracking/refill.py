@@ -136,3 +136,21 @@ def recompute_fills(db_path: str) -> int:
         return len(rows)
     finally:
         conn.close()
+
+
+def flag_anomalies(db_path: str) -> int:
+    """答え合わせ済みで未判定の行に、株式分割などのデータ異常の疑いを付ける。付けた件数を返す（何度実行しても同じ）。"""
+    from tracking.predictions_db import is_data_anomaly
+
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, COALESCE(pred_close, entry_price), target_close FROM predictions "
+            "WHERE evaluated = 1 AND data_anomaly = 0"
+        ).fetchall()
+        ids = [r[0] for r in rows if is_data_anomaly(r[1], r[2])]
+        conn.executemany("UPDATE predictions SET data_anomaly = 1 WHERE id = ?", [(i,) for i in ids])
+        conn.commit()
+        return len(ids)
+    finally:
+        conn.close()
