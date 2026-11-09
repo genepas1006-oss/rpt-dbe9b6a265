@@ -14,6 +14,7 @@ from analysis.scoring import RankedCandidate
 from report.one_point_summary import build_one_point_summary, build_outlook
 from tracking.predictions_db import MarketOrderStats, WinRateStats
 from tracking.missed import MissedPrediction
+from tracking.previous import STATUS_LABEL, STATUS_ORDER, PreviousResults
 from tracking.unfilled import UnfilledPrediction
 
 
@@ -40,6 +41,33 @@ def _market_order_lines(stats: MarketOrderStats | None) -> list[str]:
     ]
     if stats.limit_avg_return is not None:
         lines.append(f"- 指値の平均リターン（同じ予測・約定分）: {stats.limit_avg_return * 100:+.2f}%")
+    return lines
+
+
+def _previous_section(side_label: str, prev: PreviousResults | None) -> list[str]:
+    """前営業日の予想とその結果。成績（累計）の直後、本日の候補の前に置く。"""
+    if prev is None or not prev.items:
+        return []
+    counts = prev.counts()
+    summary = "・".join(f"{STATUS_LABEL[s]}{counts[s]}" for s in STATUS_ORDER)
+    lines = [
+        "",
+        f"## 前営業日の結果（{side_label}）",
+        "",
+        f"- 対象: {prev.prediction_date.isoformat()}予測 → {prev.target_date.isoformat()} | {summary}",
+    ]
+    for i in prev.items:
+        ret = "-" if i.result_return is None else f"{i.result_return * 100:+.2f}%"
+        oc = "-" if i.oc_return is None else f"{i.oc_return * 100:+.2f}%"
+        move = (
+            "-"
+            if i.target_open is None or i.target_close is None
+            else f"始値{i.target_open:,.1f}円 → 終値{i.target_close:,.1f}円"
+        )
+        lines.append(
+            f"- {i.rank}位 | {i.name}（{i.code}） | {STATUS_LABEL[i.status]} | "
+            f"{i.entry_price:,.1f}円 | {ret} | {move} | {oc}"
+        )
     return lines
 
 
@@ -111,6 +139,8 @@ def generate_report(
     sell_missed: list[MissedPrediction] | None = None,
     buy_market: MarketOrderStats | None = None,
     sell_market: MarketOrderStats | None = None,
+    buy_previous: PreviousResults | None = None,
+    sell_previous: PreviousResults | None = None,
 ) -> str:
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
@@ -127,6 +157,8 @@ def generate_report(
         *_stats_lines(sell_stats),
         *_market_order_lines(sell_market),
     ]
+    lines += _previous_section("買い", buy_previous)
+    lines += _previous_section("売り", sell_previous)
     lines += _unfilled_section("買い", buy_unfilled or [])
     lines += _unfilled_section("売り", sell_unfilled or [])
     lines += _missed_section("買い", buy_missed or [])

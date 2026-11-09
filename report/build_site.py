@@ -22,7 +22,14 @@ from pathlib import Path
 
 from report.md_to_html import color_deltas
 from analysis.miss_analysis import build_suggestion, count_causes
-from report.parse_report import ParsedCandidate, ParsedMiss, ParsedReport, ParsedUnfilled, parse_report
+from report.parse_report import (
+    ParsedCandidate,
+    ParsedMiss,
+    ParsedPrevious,
+    ParsedReport,
+    ParsedUnfilled,
+    parse_report,
+)
 
 PAGE_TITLE = "日本株デイクローズ・リサーチ"
 
@@ -31,6 +38,7 @@ _STYLE = """
   --bg: #f4f3ef; --surface: #ffffff; --surface-2: #f2f1ed;
   --text: #1c1d21; --text-muted: #6b6e76; --border: #e3e1da;
   --ink: #23283a; --accent: #3b4a7a;
+  --win: #2563c9; --win-bg: #e6eefc; --loss: #b45f06; --loss-bg: #fdf0dd; --idle: #6b6e76; --idle-bg: #ecebe6;
   --up: #c0392b; --down: #1e8449;
   --buy: #d4483b; --buy-bg: #fdecea; --buy-text: #a93226;
   --sell: #239a5b; --sell-bg: #e6f4ec; --sell-text: #1b6b40;
@@ -41,6 +49,7 @@ _STYLE = """
     --bg: #0e1013; --surface: #171a1f; --surface-2: #1f2329;
     --text: #e9eaee; --text-muted: #9a9ea8; --border: #2a2e36;
     --ink: #e9eaee; --accent: #8fa2e8;
+    --win: #7aa7ff; --win-bg: #17284a; --loss: #f2b35e; --loss-bg: #3a2a10; --idle: #9a9ea8; --idle-bg: #262a31;
     --up: #ff7b72; --down: #56d364;
     --buy: #ff6b5e; --buy-bg: #3a1f1c; --buy-text: #ff9e95;
     --sell: #3fcf7f; --sell-bg: #16301f; --sell-text: #7ee2a0;
@@ -75,6 +84,23 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .side-head::before { content: ""; width: 5px; height: 22px; border-radius: 3px; }
 .side.buy .side-head::before { background: var(--buy); } .side.sell .side-head::before { background: var(--sell); }
 .side-sub { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); }
+.prev { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 14px; margin: 0 0 12px; }
+.prev-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.prev-title { font-weight: 800; font-size: 0.95rem; color: var(--ink); }
+.prev-sub { font-size: 0.75rem; color: var(--text-muted); }
+.prev-score { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.st { font-size: 0.72rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.st.win { background: var(--win-bg); color: var(--win); }
+.st.loss { background: var(--loss-bg); color: var(--loss); }
+.st.nofill, .st.pending { background: var(--idle-bg); color: var(--idle); }
+.prev-row { display: grid; grid-template-columns: 18px auto 1fr auto; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.prev-row .rk { font-size: 0.75rem; color: var(--text-muted); font-weight: 800; text-align: center; }
+.prev-row .pn { min-width: 0; }
+.prev-row .pn b { display: block; font-size: 0.9rem; }
+.prev-row small { display: block; font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; }
+.prev-row .pr { text-align: right; font-weight: 800; font-size: 0.95rem; white-space: nowrap; }
+.prev-row.win .pr { color: var(--win); } .prev-row.loss .pr { color: var(--loss); }
+.prev-row.nofill .pr, .prev-row.pending .pr { color: var(--idle); font-weight: 600; font-size: 0.8rem; }
 .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow); }
 .stat-tile.feature { grid-column: 1 / -1; }
@@ -369,6 +395,46 @@ def _miss_block(items: list[ParsedMiss]) -> str:
     )
 
 
+_STATUS_CLASS = {"的中": "win", "不的中": "loss", "不成立": "nofill", "未確定": "pending"}
+
+
+def _status_class(label: str) -> str:
+    return _STATUS_CLASS.get(label, "pending")
+
+
+def _count_chip(text: str) -> str:
+    """「的中2」→「的中 2」のチップ。"""
+    m = re.match(r"(\D+)(\d+)$", text)
+    label, n = (m.group(1), m.group(2)) if m else (text, "")
+    return f'<span class="st {_status_class(label)}">{html.escape((label + " " + n).strip())}</span>'
+
+
+def _previous_block(prev: ParsedPrevious | None) -> str:
+    """前営業日の予想と結果。各側の先頭に置き、今日の予想を見る前に前日の勝敗を確認できるようにする。"""
+    if prev is None or not prev.items:
+        return ""
+    chips = "".join(_count_chip(c) for c in prev.counts)
+    rows = []
+    for i in prev.items:
+        cls = _status_class(i.status)
+        has_return = i.result_return != "-"
+        ret = html.escape(i.result_return) if has_return else "約定なし" if i.status == "不成立" else "-"
+        sub_ret = f"成行 {html.escape(i.market_return)}" if i.market_return != "-" else ""
+        move = f" ／ {html.escape(i.move)}" if i.move != "-" else ""
+        rows.append(
+            f'<div class="prev-row {cls}"><span class="rk">{html.escape(i.rank.removesuffix("位"))}</span>'
+            f'<span class="st {cls}">{html.escape(i.status)}</span>'
+            f'<div class="pn"><b>{html.escape(i.name)}</b>'
+            f"<small>指値{html.escape(i.entry_price)}{move}</small></div>"
+            f'<div class="pr">{ret}<small>{sub_ret}</small></div></div>'
+        )
+    return (
+        f'<div class="prev"><div class="prev-head"><span class="prev-title">前営業日の結果</span>'
+        f'<span class="prev-sub">{html.escape(prev.heading)}</span></div>'
+        f'<div class="prev-score">{chips}</div><div class="prev-list">{"".join(rows)}</div></div>'
+    )
+
+
 def _side_section(
     heading: str,
     side: str,
@@ -377,10 +443,12 @@ def _side_section(
     unfilled: list[ParsedUnfilled] | None = None,
     anchor: bool = False,
     missed: list[ParsedMiss] | None = None,
+    previous: ParsedPrevious | None = None,
 ) -> str:
     sub = f"TOP{len(candidates)}" if candidates else ""
     sub_html = f'<span class="side-sub">{sub}</span>' if sub else ""
     parts = [f'<div class="side-head"><h2 class="side-title">{heading}</h2>{sub_html}</div>']
+    parts.append(_previous_block(previous))
     if stats_lines:
         parts.append(_stat_row(stats_lines))
     parts.append(_unfilled_block(unfilled or []))
@@ -396,12 +464,14 @@ def _side_section(
 
 def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
     sections = _side_section(
-        "買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled, latest, parsed.buy_missed
+        "買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled, latest, parsed.buy_missed,
+        parsed.buy_previous,
     )
     nav = ""
     if parsed.has_sell_section:
         sections += _side_section(
-            "売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates, parsed.sell_unfilled, latest, parsed.sell_missed
+            "売り候補", "sell", parsed.sell_stats_lines, parsed.sell_candidates, parsed.sell_unfilled, latest, parsed.sell_missed,
+            parsed.sell_previous,
         )
         if latest:
             nav = (
