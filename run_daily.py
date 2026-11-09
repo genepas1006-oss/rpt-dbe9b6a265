@@ -98,8 +98,10 @@ def run(prediction_date: date) -> Path:
         )
 
     # 朝の環境認識（米国市場→想定ギャップ）の傾きを出すための、日本株全体の夜間ギャップの履歴。失敗しても続ける
+    market_gaps = {}
     try:
-        save_market_gaps(MARKET_GAPS_PATH, market_overnight_gaps(all_bars))
+        market_gaps = market_overnight_gaps(all_bars)
+        save_market_gaps(MARKET_GAPS_PATH, market_gaps)
     except Exception as e:  # noqa: BLE001
         print(f"[market_gaps] 保存に失敗しました: {e}")
 
@@ -148,7 +150,7 @@ def run(prediction_date: date) -> Path:
     )
 
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-    build_index(REPORTS_DIR, DOCS_DIR, generated_at)
+    build_index(REPORTS_DIR, DOCS_DIR, generated_at, market_gaps)
     result = publish_docs(Path(__file__).parent, f"docs: {prediction_date.isoformat()}レポート公開")
     print(f"[publish] {result.status}: {result.detail}")
     if not result.ok:

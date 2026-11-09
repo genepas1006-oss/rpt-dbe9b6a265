@@ -428,10 +428,32 @@ def _env_row(key: str, value: str, tag: str, tag_label: str, source: str, small:
     )
 
 
+def _actual_gap_row(pm: Premarket, market_gaps: dict[date, float] | None) -> str:
+    """想定ギャップの答え合わせ。実際の値（前日終値→当日始値の225銘柄平均）があれば、想定との差と方向の一致を併記する。"""
+    key = "実際のギャップ（日本株全体の平均）"
+    actual = (market_gaps or {}).get(pm.for_date)
+    if actual is None:
+        return _env_row(key, "不明", "unknown", "不明", "寄り付き後（15:35の更新）に反映されます")
+    diff = (actual - pm.expected_gap) * 100
+    if actual == 0 or pm.expected_gap == 0:
+        direction = "判定なし"
+    else:
+        direction = "一致" if (actual > 0) == (pm.expected_gap > 0) else "不一致"
+    return _env_row(
+        key,
+        color_deltas(html.escape(f"{actual * 100:+.2f}%")),
+        "fact",
+        "事実",
+        f"{pm.for_date.isoformat()}・前日終値→当日始値の225銘柄平均（Yahoo Finance）｜想定との差 {diff:+.1f}ポイント・方向 {direction}",
+    )
+
+
 _NEXT_DAY_UNKNOWN = "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます"
 
 
-def _environment_block(pm: Premarket | None, latest_prediction_date: date | None) -> str:
+def _environment_block(
+    pm: Premarket | None, latest_prediction_date: date | None, market_gaps: dict[date, float] | None = None
+) -> str:
     """寄り前の環境認識（目安）。事実・推測・不明を区別し、出所と基準日を付ける。
 
     最新レポートの予測日以前が対象日の値（対象日が過ぎた値）も隠さず、「参考」と明記して残す。
@@ -466,6 +488,7 @@ def _environment_block(pm: Premarket | None, latest_prediction_date: date | None
             rows.append(_env_row("過去の精度", html.escape(accuracy), "fact", "事実（過去の検証）", src, small=True))
         else:
             rows.append(_env_row("過去の精度", "不明", "unknown", "不明", "検証に必要なデータが足りません"))
+        rows.append(_actual_gap_row(pm, market_gaps))
         if not is_current:
             rows.append(_env_row("翌営業日向けの想定ギャップ", "不明", "unknown", "不明", _NEXT_DAY_UNKNOWN))
     else:
@@ -594,7 +617,9 @@ def _day_row(stem: str, parsed: ParsedReport, body: str) -> str:
     )
 
 
-def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
+def build_index(
+    reports_dir: Path, docs_dir: Path, generated_at: str, market_gaps: dict[date, float] | None = None
+) -> Path:
     docs_dir.mkdir(parents=True, exist_ok=True)
 
     report_files = sorted(reports_dir.glob("*.md"), reverse=True)
@@ -607,7 +632,7 @@ def build_index(reports_dir: Path, docs_dir: Path, generated_at: str) -> Path:
             latest_date = date.fromisoformat(report_files[0].stem)
         except ValueError:
             latest_date = None
-    env_html = _environment_block(premarket, latest_date)
+    env_html = _environment_block(premarket, latest_date, market_gaps)
     history_by_month: dict[str, list[str]] = defaultdict(list)
 
     for i, path in enumerate(report_files):

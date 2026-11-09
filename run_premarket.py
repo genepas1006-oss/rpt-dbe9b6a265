@@ -56,7 +56,7 @@ def main() -> int:
     if args.no_publish:
         return 0
 
-    build_index(REPORTS_DIR, DOCS_DIR, now.strftime("%Y-%m-%d %H:%M"))
+    build_index(REPORTS_DIR, DOCS_DIR, now.strftime("%Y-%m-%d %H:%M"), gaps)
     result = publish_docs(Path(__file__).parent, f"docs: {for_date.isoformat()} 環境認識の更新")
     print(f"[publish] {result.status}: {result.detail}")
     return 0 if result.ok else 1

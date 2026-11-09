@@ -285,3 +285,71 @@ def test_gaps_on_or_after_the_target_day_are_ignored():
     leaked[for_date + timedelta(days=1)] = -99.0  # それ以降があっても
     out, _ = compute_premarket(leaked, us_bars, for_date, "t")
     assert out == base
+
+
+# ---------------- 実際のギャップの追記（答え合わせ） ----------------
+def _page_with_gaps(tmp_path, pm, gaps, report_day="2026-11-09"):
+    reports = tmp_path / "reports"
+    reports.mkdir(exist_ok=True)
+    (reports / f"{report_day}.md").write_text("# 日本株デイクローズ・リサーチレポート\n", encoding="utf-8")
+    save_premarket(reports / "premarket.json", pm)
+    return build_index(reports, tmp_path / "docs", "t", gaps).read_text(encoding="utf-8")
+
+
+def test_actual_gap_row_hand_calc_direction_match(tmp_path):
+    # 想定 +0.2%、実際 +1.56% → 差 +1.36 → 「+1.4ポイント」、方向は一致
+    pm = _pm(for_date=date(2026, 11, 9), expected_gap=0.002)
+    page = _page_with_gaps(tmp_path, pm, {date(2026, 11, 9): 0.0156})
+    assert '<div class="env-k">実際のギャップ（日本株全体の平均）</div><div class="env-v"><span style="color:var(--up)">+1.56%</span></div><span class="tag fact">事実</span>' in page
+    assert "2026-11-09・前日終値→当日始値の225銘柄平均（Yahoo Finance）｜想定との差 +1.4ポイント・方向 一致" in page
+
+
+def test_actual_gap_row_direction_mismatch_and_negative_diff(tmp_path):
+    # 想定 +0.3%、実際 -0.5% → 差 -0.8、方向は不一致
+    pm = _pm(for_date=date(2026, 11, 9), expected_gap=0.003)
+    page = _page_with_gaps(tmp_path, pm, {date(2026, 11, 9): -0.005})
+    assert '<span style="color:var(--down)">-0.50%</span>' in page
+    assert "想定との差 -0.8ポイント・方向 不一致" in page
+
+
+def test_actual_gap_row_negative_expected_negative_actual_matches(tmp_path):
+    pm = _pm(for_date=date(2026, 11, 9), expected_gap=-0.004)
+    page = _page_with_gaps(tmp_path, pm, {date(2026, 11, 9): -0.012})
+    assert "想定との差 -0.8ポイント・方向 一致" in page
+
+
+def test_actual_gap_row_zero_gives_no_direction(tmp_path):
+    pm = _pm(for_date=date(2026, 11, 9), expected_gap=0.003)
+    assert "方向 判定なし" in _page_with_gaps(tmp_path, pm, {date(2026, 11, 9): 0.0})
+    pm0 = _pm(for_date=date(2026, 11, 9), expected_gap=0.0)
+    assert "方向 判定なし" in _page_with_gaps(tmp_path, pm0, {date(2026, 11, 9): 0.01})
+
+
+def test_actual_gap_row_unknown_when_not_available(tmp_path):
+    pm = _pm(for_date=date(2026, 11, 10))
+    for gaps in (None, {}, {date(2026, 11, 9): 0.01}):   # 対象日(11/10)の値がない
+        page = _page_with_gaps(tmp_path, pm, gaps, report_day="2026-11-09")
+        assert '<div class="env-k">実際のギャップ（日本株全体の平均）</div><div class="env-v">不明</div>' in page
+        assert "寄り付き後（15:35の更新）に反映されます" in page
+        assert "想定との差" not in page
+
+
+def test_actual_gap_uses_the_premarket_target_day_only(tmp_path):
+    pm = _pm(for_date=date(2026, 11, 9), expected_gap=0.002)
+    page = _page_with_gaps(tmp_path, pm, {date(2026, 11, 6): -0.0513, date(2026, 11, 9): 0.0156, date(2026, 11, 10): 0.09})
+    assert "+1.56%" in page and "-5.13%" not in page and "+9.00%" not in page
+
+
+def test_actual_gap_not_shown_without_premarket(tmp_path):
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "2026-11-09.md").write_text("# x\n", encoding="utf-8")
+    page = build_index(reports, tmp_path / "docs", "t", {date(2026, 11, 9): 0.0156}).read_text(encoding="utf-8")
+    assert "実際のギャップ" not in page
+
+
+def test_actual_gap_wording_has_no_assertions(tmp_path):
+    pm = _pm(for_date=date(2026, 11, 9), expected_gap=0.002)
+    page = _page_with_gaps(tmp_path, pm, {date(2026, 11, 9): 0.0156})
+    env = page.split('<section class="env">')[1].split("</section>")[0]
+    assert not any(w in env for w in ("必ず", "確実"))
