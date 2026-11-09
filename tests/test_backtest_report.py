@@ -39,3 +39,22 @@ def test_markdown_contains_marks_and_no_assertive_wording():
     assert "baseline" in md
     assert not any(w in md for w in ("必ず", "確実"))
     assert "保証するものではありません" in md
+
+
+def test_positive_both_requires_positive_in_both_periods():
+    from backtest.report import positive_both
+
+    assert positive_both(_results(-0.01, -0.01, 0.002, 0.001), "v", "buy") is True
+    assert positive_both(_results(-0.01, -0.01, 0.002, -0.001), "v", "buy") is False
+    assert positive_both(_results(-0.01, -0.01, 0.0, 0.001), "v", "buy") is False  # 0はプラスではない
+    res = _results(-0.01, -0.01, 0.002, 0.001)
+    res["v"]["train"]["buy"] = _m(None)
+    assert positive_both(res, "v", "buy") is False
+
+
+def test_markdown_marks_double_circle_only_when_positive_in_both():
+    md = build_markdown(_results(-0.01, -0.01, 0.002, 0.001), {"train": "前半", "valid": "後半"})
+    rows = [l for l in md.splitlines() if l.startswith("| v |")]
+    assert rows and all(l.rstrip().endswith("✓◎ |") for l in rows)
+    md2 = build_markdown(_results(-0.01, -0.01, -0.002, -0.001), {"train": "前半", "valid": "後半"})
+    assert "◎ |" not in "\n".join(l for l in md2.splitlines() if l.startswith("| v |"))

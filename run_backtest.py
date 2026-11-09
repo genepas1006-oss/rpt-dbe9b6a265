@@ -22,6 +22,7 @@ from backtest.engine import (
     combine,
     market_filter,
     overheat_filter,
+    reversal,
     split_days,
     summarize,
 )
@@ -90,7 +91,8 @@ def build_variants() -> list[Variant]:
     singles += [overheat_filter(dev_threshold=d) for d in DEV_THRESHOLDS]
     singles += [overheat_filter(rsi_threshold=r) for r in RSI_THRESHOLDS]
     combos = [combine(market_filter(), v) for v in singles[1:]]
-    return [baseline(), *singles, *combos]
+    reverse = [reversal(), combine(reversal(), market_filter())]
+    return [baseline(), *singles, *combos, *reverse]
 
 
 def main() -> int:

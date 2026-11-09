@@ -23,6 +23,15 @@ def improved(results: Results, name: str, side: str) -> bool:
     return True
 
 
+def positive_both(results: Results, name: str, side: str) -> bool:
+    """前半・後半の両方で、平均リターンがプラスなら True。"""
+    for period in ("train", "valid"):
+        cur = results[name][period][side].avg_return
+        if cur is None or cur <= 0:
+            return False
+    return True
+
+
 def build_markdown(results: Results, period_labels: dict[str, str]) -> str:
     lines = [
         "# バックテスト結果",
@@ -30,6 +39,7 @@ def build_markdown(results: Results, period_labels: dict[str, str]) -> str:
         "平均リターン・的中率は約定した取引のみで集計。手数料・スリッページは含まない。",
         "✓ は、前半・後半の両方で baseline より平均リターンが高い条件（偶然でも付き得る目安。",
         "候補数・勝ち幅÷負け幅・条件間の一貫性もあわせて見ること）。",
+        "◎ は、前半・後半の両方で平均リターンがプラスの条件（これも偶然を含み得る。デモ期間での追跡が必要）。",
         "（結果は過去の傾向であり、将来の成績を保証するものではありません。）",
         "",
     ]
@@ -43,7 +53,11 @@ def build_markdown(results: Results, period_labels: dict[str, str]) -> str:
             ]
             for name, by_period in results.items():
                 m = by_period[period][side]
-                mark = "✓" if name != "baseline" and improved(results, name, side) else ""
+                mark = ""
+                if name != "baseline" and improved(results, name, side):
+                    mark += "✓"
+                if positive_both(results, name, side):
+                    mark += "◎"
                 lines.append(
                     f"| {name} | {m.count} | {_pct(m.fill_rate)} | {_pct(m.win_rate)} | "
                     f"{_pct(m.avg_return, 2)} | {_pct(m.avg_win, 2)} | {_pct(m.avg_loss, 2)} | "

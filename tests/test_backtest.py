@@ -373,3 +373,64 @@ def test_split_days_truncates_instead_of_rounding():
     # 4日 × 0.7 = 2.8 → 切り捨てて前半2日（後半を2日確保して検証期間を削らない）
     train, valid = split_days(_plain_days(4))
     assert (len(train), len(valid)) == (2, 2)
+
+
+# ---------------- 逆張り（2026-11-09承認） ----------------
+from backtest.engine import reversal  # noqa: E402
+
+
+def test_reversal_swaps_score_side_per_hand_calc():
+    # top_n=1: 買いは「下げ+出来高急増」のC(売りスコア5)、売りは「上げ+出来高急増」のA(買いスコア5)
+    trades = {
+        t.side: t
+        for t in apply_variant(_days(), reversal(), top_n=1)
+        if t.day == DATES[T]
+    }
+    assert set(trades) == {"buy", "sell"}
+
+    buy_c = trades["buy"]  # 96*0.995=95.52 → 95.5, 翌日 安値93 → 約定, 終値94 → 負け
+    assert buy_c.code == "C" and buy_c.entry_price == 95.5
+    assert buy_c.result_return == pytest.approx((94 - 95.5) / 95.5)  # ≒ -1.57%
+
+    sell_a = trades["sell"]  # 104*1.005=104.52 → 104.5, 翌日 高値107 → 約定, 終値106 → 負け
+    assert sell_a.code == "A" and sell_a.entry_price == 104.5
+    assert sell_a.result_return == pytest.approx((104.5 - 106) / 104.5)  # ≒ -1.44%
+
+
+def test_reversal_differs_from_baseline_selection():
+    base = {t.side: t.code for t in apply_variant(_days(), baseline(), top_n=1) if t.day == DATES[T]}
+    rev = {t.side: t.code for t in apply_variant(_days(), reversal(), top_n=1) if t.day == DATES[T]}
+    assert base == {"buy": "A", "sell": "C"}
+    assert rev == {"buy": "C", "sell": "A"}
+
+
+def test_reversal_top_n_5_contains_all_four_trades_with_hand_calc_returns():
+    by = {(t.side, t.code): t for t in apply_variant(_days(), reversal(), top_n=5) if t.day == DATES[T]}
+    assert set(by) == {("buy", "C"), ("buy", "A"), ("sell", "A"), ("sell", "C")}
+    assert by[("buy", "A")].result_return == pytest.approx((106 - 103.5) / 103.5)  # +2.42%
+    assert by[("sell", "C")].result_return == pytest.approx((96.5 - 94) / 96.5)    # +2.59%
+
+
+def test_reversal_flag_propagates_through_combine_and_names():
+    v = combine(reversal(), market_filter())
+    assert v.reverse is True and v.name == "reversal+market"
+    assert combine(market_filter(), overheat_filter(dev_threshold=0.1)).reverse is False
+    assert baseline().reverse is False
+
+
+def test_reversal_market_filter_uses_trade_side():
+    f_up, f_down = F(1, None, None), F(-1, None, None)
+    v = combine(reversal(), market_filter())
+    assert v.allow("buy", f_up) and not v.allow("buy", f_down)
+    assert v.allow("sell", f_down) and not v.allow("sell", f_up)
+
+
+def test_reversal_has_no_lookahead():
+    base = _days()
+    changed = _days(after={26: (1, 9999, 1, 9999, 10**9)})
+    pick = lambda days: [  # noqa: E731
+        (t.side, t.code, t.entry_price)
+        for t in apply_variant(days, reversal(), top_n=5)
+        if t.day <= DATES[T]
+    ]
+    assert pick(base) == pick(changed)

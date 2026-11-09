@@ -127,12 +127,24 @@ def build_trading_days(
 
 @dataclass(frozen=True)
 class Variant:
+    """allow: 取引方向(side)と特徴量から、候補にしてよいかを返す。
+
+    reverse=True（逆張り, 承認済み 2026-11-09）: 買いは「出来高急増で大きく下げた銘柄」
+    （今の売りスコア）、売りは「出来高急増で大きく上げた銘柄」（今の買いスコア）から選ぶ。
+    指値の位置・約定ルールは取引方向どおり（買いは終値より下、売りは終値より上）。
+    """
+
     name: str
     allow: Callable[[Side, Features], bool]
+    reverse: bool = False
 
 
 def baseline() -> Variant:
     return Variant("baseline", lambda side, f: True)
+
+
+def reversal() -> Variant:
+    return Variant("reversal", lambda side, f: True, reverse=True)
 
 
 def market_filter() -> Variant:
@@ -179,6 +191,7 @@ def combine(*variants: Variant) -> Variant:
     return Variant(
         "+".join(v.name for v in variants),
         lambda side, f: all(v.allow(side, f) for v in variants),
+        reverse=any(v.reverse for v in variants),
     )
 
 
@@ -192,8 +205,10 @@ def apply_variant(
     trades: list[Trade] = []
     for d in days:
         for side in ("buy", "sell"):
+            # 逆張りでは、買いは売りスコア側、売りは買いスコア側から選ぶ
+            use_buy_score = (side == "buy") != variant.reverse
             pool = [
-                (c.buy if side == "buy" else c.sell)
+                (c.buy if use_buy_score else c.sell)
                 for c in d.candidates
                 if variant.allow(side, c.features)
             ]
