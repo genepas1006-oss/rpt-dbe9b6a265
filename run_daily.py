@@ -17,7 +17,7 @@ from report.notify import notify_windows
 from report.publish import publish_docs
 from tracking.benchmark import compute_missing_benchmarks, get_score_effect
 from tracking.evaluate import evaluate_pending_predictions
-from tracking.refill import backfill_target_open, recompute_fills
+from tracking.refill import backfill_target_open, recompute_fills, repair_inconsistent_opens
 from tracking.market import index_daily_returns
 from tracking.missed import get_missed_predictions
 from tracking.previous import get_previous_results
@@ -30,6 +30,18 @@ DOCS_DIR = Path("docs")
 HISTORY_DAYS = 500
 MARKET_GAPS_PATH = Path("data/market_gaps.json")
 INDEX_LOOKBACK_DAYS = 45
+
+
+MIN_DATA_RATIO = 0.5
+
+
+class NoMarketData(RuntimeError):
+    """対象日の株価がほとんど取得できない（市場前・休場日・取得失敗）。レポートを作らない。"""
+
+
+def has_enough_market_data(loaded: int, universe: int) -> bool:
+    """対象日の足が取れた銘柄が、全体の半分以上あるか。"""
+    return universe > 0 and loaded / universe >= MIN_DATA_RATIO
 
 
 class PublishError(RuntimeError):
@@ -61,6 +73,7 @@ def run(prediction_date: date) -> Path:
 
     # 約定価格の補正（寄り値が有利なら寄り値で約定）を過去分にも反映する。失敗しても続ける
     try:
+        repair_inconsistent_opens(DB_PATH)
         backfill_target_open(DB_PATH, source)
         recompute_fills(DB_PATH)
     except Exception as e:  # noqa: BLE001
@@ -105,6 +118,12 @@ def run(prediction_date: date) -> Path:
                 technical=compute_short_technical_score(bars),
                 earnings=compute_short_earnings_score(bars, earnings_dates),
             )
+        )
+
+    if not has_enough_market_data(len(all_bars), len(NIKKEI225)):
+        raise NoMarketData(
+            f"{prediction_date.isoformat()}の株価を取得できた銘柄が{len(all_bars)}/{len(NIKKEI225)}件のため、"
+            "レポートの生成と公開を中止しました（市場の取引前・休場日・取得失敗の可能性）。"
         )
 
     # 朝の環境認識（米国市場→想定ギャップ）の傾きを出すための、日本株全体の夜間ギャップの履歴。失敗しても続ける
@@ -195,7 +214,11 @@ def main():
         datetime.strptime(args.date, "%Y-%m-%d").date() if args.date else date.today()
     )
 
-    report_path = run(prediction_date)
+    try:
+        report_path = run(prediction_date)
+    except NoMarketData as e:
+        print(e)
+        raise SystemExit(1)
     print(f"レポートを生成しました: {report_path}")
 
 

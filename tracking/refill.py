@@ -16,12 +16,62 @@ from data_sources.base import DataSource
 from tracking.trade_eval import evaluate_trade
 
 
+OPEN_TOLERANCE = 0.005
+
+
+def open_is_consistent(open_price: float, low: float | None, high: float | None) -> bool:
+    """寄り値が、記録済みの当日の安値〜高値（±0.5%の余裕）に収まるか。
+
+    株式分割のあとにデータ元から取り直した値は、分割で調整されて桁が変わる（記録済みの値とは別の基準になる）。
+    その場合は同じ基準の値ではないため、補正に使わない。
+    """
+    if low is None or high is None:
+        return True
+    return low * (1 - OPEN_TOLERANCE) <= open_price <= high * (1 + OPEN_TOLERANCE)
+
+
+def repair_inconsistent_opens(db_path: str) -> int:
+    """記録済みの安値〜高値と合わない寄り値（分割調整後の値など）を取り消し、補正前の評価に戻す。件数を返す。"""
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, side, entry_price, filled, target_low, target_high, target_close, target_open, "
+            "pred_close, pred_daily_return, pred_volume_ratio, market_return FROM predictions "
+            "WHERE evaluated = 1 AND target_open IS NOT NULL"
+        ).fetchall()
+        fixed = 0
+        for pid, side, entry, filled, low, high, close, open_, pred_close, pred_ret, pred_vr, market in rows:
+            if open_is_consistent(open_, low, high):
+                continue
+            fixed += 1
+            conn.execute(
+                "UPDATE predictions SET target_open = NULL, oc_return = NULL, fill_price = NULL WHERE id = ?", (pid,)
+            )
+            if not filled:
+                continue
+            result = evaluate_trade(side, entry, low, high, close)
+            miss_causes = None
+            if result.is_win is False and pred_close is not None:
+                miss_causes = json.dumps(
+                    classify_miss(side, pred_close, pred_ret or 0.0, pred_vr or 0.0, None, market),
+                    ensure_ascii=False,
+                )
+            conn.execute(
+                "UPDATE predictions SET result_return = ?, is_win = ?, miss_causes = ? WHERE id = ?",
+                (result.result_return, None if result.is_win is None else int(result.is_win), miss_causes, pid),
+            )
+        conn.commit()
+        return fixed
+    finally:
+        conn.close()
+
+
 def backfill_target_open(db_path: str, source: DataSource) -> int:
     """寄り値が空の答え合わせ済み行に、始値を補う。補えた件数を返す。1件の失敗で全体を止めない。"""
     conn = sqlite3.connect(db_path)
     try:
         rows = conn.execute(
-            "SELECT id, code, side, target_date, target_close FROM predictions "
+            "SELECT id, code, side, target_date, target_close, target_low, target_high FROM predictions "
             "WHERE evaluated = 1 AND target_open IS NULL"
         ).fetchall()
     finally:
@@ -29,7 +79,7 @@ def backfill_target_open(db_path: str, source: DataSource) -> int:
 
     updated = 0
     cache: dict[tuple[str, str], float | None] = {}
-    for pid, code, side, target_date, target_close in rows:
+    for pid, code, side, target_date, target_close, target_low, target_high in rows:
         key = (code, target_date)
         if key not in cache:
             cache[key] = None
@@ -41,8 +91,8 @@ def backfill_target_open(db_path: str, source: DataSource) -> int:
             except Exception:  # noqa: BLE001  取得失敗は飛ばす
                 cache[key] = None
         open_price = cache[key]
-        if open_price is None:
-            continue
+        if open_price is None or not open_is_consistent(open_price, target_low, target_high):
+            continue  # 取得できない／株式分割などで記録済みの値と基準が違う寄り値は使わない
         oc_return = (
             (open_price - target_close) / open_price if side == "sell" else (target_close - open_price) / open_price
         )
@@ -69,6 +119,8 @@ def recompute_fills(db_path: str) -> int:
             "WHERE evaluated = 1 AND filled = 1 AND target_open IS NOT NULL AND fill_price IS NULL"
         ).fetchall()
         for pid, side, entry, low, high, close, open_, pred_close, pred_ret, pred_vr, market in rows:
+            if not open_is_consistent(open_, low, high):
+                continue
             result = evaluate_trade(side, entry, low, high, close, open_)
             miss_causes = None
             if result.is_win is False and pred_close is not None:

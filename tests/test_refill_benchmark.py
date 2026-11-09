@@ -163,3 +163,44 @@ def test_report_line_and_site_tile_for_score_effect(tmp_path):
     (reports / "2026-11-09.md").write_text(text, encoding="utf-8")
     page = build_index(reports, tmp_path / "docs", "x").read_text(encoding="utf-8")
     assert "全銘柄平均との差（スコアの効果の目安）" in page and "+0.01%" in page
+
+
+# ---- 株式分割などで基準の違う寄り値を使わない（2026-11-10 バグ修正） ----
+def test_open_consistency_boundaries():
+    from tracking.refill import open_is_consistent
+
+    assert open_is_consistent(1004, 975, 1000) and open_is_consistent(971, 975, 1000)  # 安値-0.5%〜高値+0.5%
+    assert not open_is_consistent(1006, 975, 1000) and not open_is_consistent(969, 975, 1000)
+    assert not open_is_consistent(98, 975, 1000)  # 10分割で調整された寄り値
+    assert open_is_consistent(5, None, None)  # 安値・高値が不明なら判定しない
+
+
+def test_backfill_rejects_split_adjusted_open(db):
+    _insert(db, "S", low=975, high=1000, close=990, open_=None, ret=-0.01, win=0)
+    assert backfill_target_open(db, _Src({"S": 98.0})) == 0
+    assert recompute_fills(db) == 0
+    assert _row(db, "S")[:3] == (None, -0.01, 0)
+
+
+def test_repair_restores_row_damaged_by_split_adjusted_open(db):
+    # 10分割の前に記録した予測。調整後の寄り値98で補正され、損益が +910% になってしまった行
+    _insert(db, "S", low=975, high=1000, close=990, open_=98, ret=(990 - 98) / 98, win=1, fill_price=98)
+    _insert(db, "OK", low=975, high=1000, close=990, open_=980, ret=10 / 980, win=1, fill_price=980)  # 正常な行は触らない
+    from tracking.refill import repair_inconsistent_opens
+
+    assert repair_inconsistent_opens(db) == 1
+    fill, ret, win, _ = _row(db, "S")
+    assert fill is None and ret == pytest.approx(-0.01) and win == 0  # (990-1000)/1000 の補正前の評価に戻る
+    assert _row(db, "OK")[:3] == (980, pytest.approx(10 / 980), 1)
+    conn = sqlite3.connect(db)
+    assert conn.execute("SELECT target_open, oc_return FROM predictions WHERE code='S'").fetchone() == (None, None)
+    conn.close()
+    assert repair_inconsistent_opens(db) == 0
+
+
+def test_has_enough_market_data():
+    from run_daily import has_enough_market_data
+
+    assert has_enough_market_data(225, 225) and has_enough_market_data(113, 225)
+    assert not has_enough_market_data(112, 225) and not has_enough_market_data(0, 225)
+    assert not has_enough_market_data(0, 0)
