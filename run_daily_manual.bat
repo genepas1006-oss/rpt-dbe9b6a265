@@ -2,6 +2,9 @@
 rem Manual run of the daily report. Keeps the window open so you can read the result or the error.
 rem (Do not use this for Task Scheduler: it waits for a key press. Use run_daily.bat for that.)
 cd /d "%~dp0"
+rem Pull the latest code first (ignore failures such as being offline).
+if not exist logs mkdir logs
+git pull --ff-only origin main >> logs\git_pull.log 2>&1
 set PYTHONUTF8=1
 if not exist logs mkdir logs
 if not exist ".venv\Scripts\python.exe" (
