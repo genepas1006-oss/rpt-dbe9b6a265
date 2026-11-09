@@ -99,3 +99,39 @@ def build_execution_markdown(
                 )
             lines.append("")
     return "\n".join(lines)
+
+
+def _ci(boot, pct: bool = True) -> str:
+    if boot.mean is None or boot.ci_low is None:
+        return "-"
+    return f"{boot.mean * 100:+.2f}%[{boot.ci_low * 100:+.2f},{boot.ci_high * 100:+.2f}] p={boot.p_not_positive:.4f}"
+
+
+def build_preopen_markdown(rows, period_labels: dict[str, str], cost: float, resamples: int) -> str:
+    """rows: [(StrategyResult(前半), StrategyResult(後半), 採用候補か)]"""
+    lines = [
+        "# 寄り前に分かる情報でのデイトレ検証（始値で入り、同日の終値で決済）",
+        "",
+        f"想定始値は実際の始値で代用（寄り前気配とのずれ分、やや楽観的）。費用は往復{cost * 100:g}%を差し引いた値も併記。",
+        f"差は『同じ向きの全件』との比較。[ ]は日単位ブートストラップ{resamples:,}回の95%区間、pは差がプラスでない確率。",
+        "◎ は事前に決めた採用候補の条件（前半で多重比較補正後p<0.05/48、後半でp<0.05、両期間で費用後プラス）を満たしたもの。",
+        "（過去の傾向であり、将来の成績を保証するものではありません。）",
+        "",
+    ]
+    for period, label in (("train", period_labels["train"]), ("valid", period_labels["valid"])):
+        lines += [
+            f"## {label}",
+            "",
+            "| 条件 | 件数 | 的中率[95%区間] | 的中率の差 | 平均リターン | 費用後 | 平均リターンの差 | |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for train, valid, ok in rows:
+            r = train if period == "train" else valid
+            wr = "-" if r.win_rate is None else f"{r.win_rate * 100:.1f}%[{r.wilson[0] * 100:.1f},{r.wilson[1] * 100:.1f}]"
+            avg = "-" if r.avg_gross is None else f"{r.avg_gross * 100:+.3f}%"
+            net = "-" if r.avg_net is None else f"{r.avg_net * 100:+.3f}%"
+            lines.append(
+                f"| {r.name} | {r.n} | {wr} | {_ci(r.win_boot)} | {avg} | {net} | {_ci(r.ret_boot)} | {'◎' if ok else ''} |"
+            )
+        lines.append("")
+    return "\n".join(lines)
