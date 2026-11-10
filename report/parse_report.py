@@ -76,6 +76,11 @@ class ParsedReport:
     sell_missed: list[ParsedMiss] = field(default_factory=list)
     buy_previous: ParsedPrevious | None = None
     sell_previous: ParsedPrevious | None = None
+    # テスト枠（値動き重視・試験運用）
+    exp_buy_stats_lines: list[str] = field(default_factory=list)
+    exp_sell_stats_lines: list[str] = field(default_factory=list)
+    exp_buy_candidates: list[ParsedCandidate] = field(default_factory=list)
+    exp_sell_candidates: list[ParsedCandidate] = field(default_factory=list)
 
     @property
     def has_sell_section(self) -> bool:
@@ -200,8 +205,24 @@ def parse_report(text: str) -> ParsedReport:
     sell_missed: list[ParsedMiss] = []
     buy_previous: ParsedPrevious | None = None
     sell_previous: ParsedPrevious | None = None
+    exp_buy_stats: list[str] = []
+    exp_sell_stats: list[str] = []
+    exp_buy_candidates: list[ParsedCandidate] = []
+    exp_sell_candidates: list[ParsedCandidate] = []
 
     for heading, body in sections:
+        if heading.startswith("テスト枠の成績（買い"):
+            exp_buy_stats = _parse_stats_lines(body)
+            continue
+        if heading.startswith("テスト枠の成績（売り"):
+            exp_sell_stats = _parse_stats_lines(body)
+            continue
+        if heading.startswith("テスト枠の買い候補"):
+            exp_buy_candidates = _parse_candidates(body)
+            continue
+        if heading.startswith("テスト枠の売り候補"):
+            exp_sell_candidates = _parse_candidates(body)
+            continue
         if heading.startswith("デモ検証成績（買い"):
             buy_stats = _parse_stats_lines(body)
         elif heading.startswith("デモ検証成績（売り"):
@@ -240,4 +261,8 @@ def parse_report(text: str) -> ParsedReport:
         sell_missed=sell_missed,
         buy_previous=buy_previous,
         sell_previous=sell_previous,
+        exp_buy_stats_lines=exp_buy_stats,
+        exp_sell_stats_lines=exp_sell_stats,
+        exp_buy_candidates=exp_buy_candidates,
+        exp_sell_candidates=exp_sell_candidates,
     )

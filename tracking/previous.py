@@ -63,7 +63,7 @@ def get_previous_results(db_path: str, side: Side, before: date) -> PreviousResu
     conn = sqlite3.connect(db_path)
     try:
         last = conn.execute(
-            "SELECT MAX(prediction_date) FROM predictions WHERE side = ? AND prediction_date < ?",
+            "SELECT MAX(prediction_date) FROM predictions WHERE variant = 'main' AND side = ? AND prediction_date < ?",
             (side, before.isoformat()),
         ).fetchone()[0]
         if last is None:
@@ -71,7 +71,7 @@ def get_previous_results(db_path: str, side: Side, before: date) -> PreviousResu
         rows = conn.execute(
             "SELECT target_date, code, name, entry_price, evaluated, filled, is_win, result_return, "
             "target_open, target_close, oc_return, pred_close FROM predictions "
-            "WHERE side = ? AND prediction_date = ? ORDER BY id ASC",
+            "WHERE variant = 'main' AND side = ? AND prediction_date = ? ORDER BY id ASC",
             (side, last),
         ).fetchall()
     finally:

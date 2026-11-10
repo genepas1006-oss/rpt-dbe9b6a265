@@ -8,6 +8,7 @@ from analysis.earnings import compute_earnings_score, compute_short_earnings_sco
 from analysis.scoring import CandidateInput, rank_candidates
 from analysis.technical import compute_short_technical_score, compute_technical_score
 from analysis.fundamental_comment import build_snapshot
+from analysis.volatile_pool import select_volatile_pool
 from analysis.miss_review import snapshot_to_json
 from analysis.market_gaps import market_overnight_gaps, save_market_gaps
 from config import NIKKEI225
@@ -24,7 +25,7 @@ from tracking.market import index_daily_returns
 from tracking.miss_reviews import update_miss_reviews
 from tracking.missed import get_missed_predictions
 from tracking.previous import get_previous_results
-from tracking.predictions_db import get_market_order_stats, get_win_rate_stats, init_db, replace_predictions
+from tracking.predictions_db import VOLATILE, get_market_order_stats, get_win_rate_stats, init_db, replace_predictions
 from tracking.unfilled import get_unfilled_predictions
 
 DB_PATH = "data/predictions.db"
@@ -181,6 +182,18 @@ def run(prediction_date: date) -> Path:
     replace_predictions(DB_PATH, prediction_date, target_date, "buy", ranked_buy, extras)
     replace_predictions(DB_PATH, prediction_date, target_date, "sell", ranked_sell, extras)
 
+    # テスト枠（値動き重視・試験運用）: 当日値幅率の上位30%から選ぶ。本番とは別の区分で記録する。失敗しても続ける
+    exp_buy, exp_sell = [], []
+    try:
+        pool_codes = {c.code for c in select_volatile_pool(buy_candidates)}
+        exp_buy = rank_candidates([c for c in buy_candidates if c.code in pool_codes], side="buy")
+        exp_sell = rank_candidates([c for c in sell_candidates if c.code in pool_codes], side="sell")
+        replace_predictions(DB_PATH, prediction_date, target_date, "buy", exp_buy, variant=VOLATILE)
+        replace_predictions(DB_PATH, prediction_date, target_date, "sell", exp_sell, variant=VOLATILE)
+    except Exception as e:  # noqa: BLE001
+        print(f"[volatile] テスト枠の作成に失敗しました: {e}")
+        exp_buy, exp_sell = [], []
+
     buy_stats = get_win_rate_stats(DB_PATH, side="buy")
     sell_stats = get_win_rate_stats(DB_PATH, side="sell")
     report_text = generate_report(
@@ -202,6 +215,12 @@ def run(prediction_date: date) -> Path:
         get_score_effect(DB_PATH, "sell"),
         fundamentals=fundamentals,
         earnings_days=earnings_days,
+        exp_buy_candidates=exp_buy,
+        exp_sell_candidates=exp_sell,
+        exp_buy_stats=get_win_rate_stats(DB_PATH, side="buy", variant=VOLATILE),
+        exp_sell_stats=get_win_rate_stats(DB_PATH, side="sell", variant=VOLATILE),
+        exp_buy_effect=get_score_effect(DB_PATH, "buy", VOLATILE),
+        exp_sell_effect=get_score_effect(DB_PATH, "sell", VOLATILE),
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"

@@ -58,7 +58,7 @@ def get_virtual_fund(db_path: str, start_date: date, initial: float, slots: int)
     try:
         rows = conn.execute(
             "SELECT prediction_date, target_date, side, evaluated, filled, result_return, data_anomaly "
-            "FROM predictions WHERE prediction_date >= ? ORDER BY prediction_date, id",
+            "FROM predictions WHERE variant = 'main' AND prediction_date >= ? ORDER BY prediction_date, id",
             (start_date.isoformat(),),
         ).fetchall()
     finally:

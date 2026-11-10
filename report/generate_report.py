@@ -179,6 +179,12 @@ def generate_report(
     sell_effect: ScoreEffect | None = None,
     fundamentals: dict[str, Fundamentals] | None = None,
     earnings_days: dict[str, int | None] | None = None,
+    exp_buy_candidates: list[RankedCandidate] | None = None,
+    exp_sell_candidates: list[RankedCandidate] | None = None,
+    exp_buy_stats: WinRateStats | None = None,
+    exp_sell_stats: WinRateStats | None = None,
+    exp_buy_effect: ScoreEffect | None = None,
+    exp_sell_effect: ScoreEffect | None = None,
 ) -> str:
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
@@ -218,5 +224,21 @@ def generate_report(
         fundamentals,
         earnings_days,
     )
+
+    # テスト枠（値動き重視・試験運用）。本番の成績・仮想資金には含めない
+    if exp_buy_candidates or exp_sell_candidates:
+        for label, stats, effect in (("買い", exp_buy_stats, exp_buy_effect), ("売り", exp_sell_stats, exp_sell_effect)):
+            if stats is not None:
+                lines += ["", f"## テスト枠の成績（{label}・値動き重視）", *_stats_lines(stats), *_score_effect_lines(effect)]
+        lines += _candidate_section(
+            f"## テスト枠の買い候補（{target_date.isoformat()}向け・値動き重視）",
+            exp_buy_candidates or [],
+            "テスト枠に該当する買い候補がありませんでした。",
+        )
+        lines += _candidate_section(
+            f"## テスト枠の売り候補（{target_date.isoformat()}向け・値動き重視）",
+            exp_sell_candidates or [],
+            "テスト枠に該当する売り候補がありませんでした。",
+        )
 
     return "\n".join(lines)

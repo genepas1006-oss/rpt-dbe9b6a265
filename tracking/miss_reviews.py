@@ -18,13 +18,13 @@ def update_miss_reviews(db_path: str) -> int:
     try:
         conn.execute(
             "DELETE FROM miss_reviews WHERE prediction_id NOT IN ("
-            "SELECT id FROM predictions WHERE evaluated = 1 AND filled = 1 AND is_win = 0 AND data_anomaly = 0)"
+            "SELECT id FROM predictions WHERE evaluated = 1 AND variant = 'main' AND filled = 1 AND is_win = 0 AND data_anomaly = 0)"
         )
         rows = conn.execute(
             "SELECT p.id, p.side, p.entry_price, p.pred_close, p.pred_daily_return, p.pred_volume_ratio, "
             "p.target_open, p.target_high, p.target_low, p.target_close, p.market_return, p.fundamental_json, "
             "p.earnings_days FROM predictions p LEFT JOIN miss_reviews r ON r.prediction_id = p.id "
-            "WHERE p.evaluated = 1 AND p.filled = 1 AND p.is_win = 0 AND p.data_anomaly = 0 "
+            "WHERE p.evaluated = 1 AND p.variant = 'main' AND p.filled = 1 AND p.is_win = 0 AND p.data_anomaly = 0 "
             "AND p.pred_close IS NOT NULL AND r.prediction_id IS NULL"
         ).fetchall()
         created = 0

@@ -49,7 +49,7 @@ def get_unfilled_predictions(db_path: str, side: Side) -> list[UnfilledPredictio
         rows = conn.execute(
             "SELECT prediction_date, target_date, code, name, side, entry_price, "
             "target_low, target_high, target_close FROM predictions "
-            "WHERE evaluated = 1 AND data_anomaly = 0 AND filled = 0 AND side = ? "
+            "WHERE evaluated = 1 AND variant = 'main' AND data_anomaly = 0 AND filled = 0 AND side = ? "
             "ORDER BY prediction_date DESC, id ASC",
             (side,),
         ).fetchall()

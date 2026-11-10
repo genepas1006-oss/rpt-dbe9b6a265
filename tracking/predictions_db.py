@@ -69,7 +69,11 @@ EXTRA_COLUMNS = {
     "data_anomaly": "INTEGER NOT NULL DEFAULT 0",  # 2026-11-10: 株式分割などの疑いで成績から除外する行
     "fundamental_json": "TEXT",  # 2026-11-10: 予測時のファンダメンタルの材料（外れた予想の分析用）
     "earnings_days": "INTEGER",  # 2026-11-10: 予測時点での次回決算までの日数
+    "variant": "TEXT NOT NULL DEFAULT 'main'",  # 2026-11-10: 'main'=本番 / 'volatile'=テスト枠（値動き重視）
 }
+
+MAIN = "main"
+VOLATILE = "volatile"
 
 MISS_REVIEWS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS miss_reviews (
@@ -117,8 +121,9 @@ def save_predictions(
     target_date: date,
     candidates: list[RankedCandidate],
     extras: dict[str, tuple[str | None, int | None]] | None = None,
+    variant: str = MAIN,
 ) -> None:
-    """extras: 銘柄コード → (予測時のファンダメンタル材料のJSON, 次回決算までの日数)。外れた予想の分析用に記録する。"""
+    """variant: 'main'（本番）/ 'volatile'（テスト枠）。extras: 銘柄コード → (予測時のファンダメンタル材料のJSON, 次回決算までの日数)。外れた予想の分析用に記録する。"""
     extras = extras or {}
     conn = sqlite3.connect(db_path)
     try:
@@ -129,8 +134,8 @@ def save_predictions(
                 prediction_date, code, name, side, total_score, technical_score,
                 earnings_score, entry_price, reasons, target_date,
                 evaluated, created_at, pred_close, pred_daily_return, pred_volume_ratio,
-                fundamental_json, earnings_days
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
+                fundamental_json, earnings_days, variant
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -150,6 +155,7 @@ def save_predictions(
                     c.volume_ratio,
                     extras.get(c.code, (None, None))[0],
                     extras.get(c.code, (None, None))[1],
+                    variant,
                 )
                 for c in candidates
             ],
@@ -166,8 +172,9 @@ def replace_predictions(
     side: Side,
     candidates: list[RankedCandidate],
     extras: dict[str, tuple[str | None, int | None]] | None = None,
+    variant: str = MAIN,
 ) -> None:
-    """同じ予測日・同じsideの予測を最新の1セットに置き換える（再実行しても二重登録しない）。
+    """同じ予測日・同じside（・同じ区分）の予測を最新の1セットに置き換える（再実行しても二重登録しない）。
 
     承認済み（2026-11-06）:
         - その予測日・sideに答え合わせ済みの予測があれば、何も変更しない。
@@ -177,20 +184,20 @@ def replace_predictions(
     try:
         evaluated = conn.execute(
             "SELECT COUNT(*) FROM predictions "
-            "WHERE prediction_date = ? AND side = ? AND evaluated = 1",
-            (prediction_date.isoformat(), side),
+            "WHERE prediction_date = ? AND side = ? AND variant = ? AND evaluated = 1",
+            (prediction_date.isoformat(), side, variant),
         ).fetchone()[0]
         if evaluated > 0:
             return
         conn.execute(
-            "DELETE FROM predictions WHERE prediction_date = ? AND side = ? AND evaluated = 0",
-            (prediction_date.isoformat(), side),
+            "DELETE FROM predictions WHERE prediction_date = ? AND side = ? AND variant = ? AND evaluated = 0",
+            (prediction_date.isoformat(), side, variant),
         )
         conn.commit()
     finally:
         conn.close()
     if candidates:
-        save_predictions(db_path, prediction_date, target_date, candidates, extras)
+        save_predictions(db_path, prediction_date, target_date, candidates, extras, variant)
 
 
 @dataclass(frozen=True)
@@ -315,12 +322,12 @@ class WinRateStats:
     direction_hits: int = 0  # 予測日の終値から見て、予想した向きに動いた件数
 
 
-def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
+def get_win_rate_stats(db_path: str, side: Side | None = None, variant: str = MAIN) -> WinRateStats:
     """side指定時はその方向のみ、省略時は買い売り合算で集計する。"""
     conn = sqlite3.connect(db_path)
     try:
-        where = "WHERE evaluated = 1 AND data_anomaly = 0" + (" AND side = ?" if side else "")
-        params = (side,) if side else ()
+        where = "WHERE evaluated = 1 AND data_anomaly = 0 AND variant = ?" + (" AND side = ?" if side else "")
+        params = (variant, side) if side else (variant,)
         total = conn.execute(
             f"SELECT COUNT(*) FROM predictions {where}", params
         ).fetchone()[0]
@@ -331,7 +338,7 @@ def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
             f"SELECT COUNT(*) FROM predictions {where} AND is_win = 1", params
         ).fetchone()[0]
         excluded = conn.execute(
-            "SELECT COUNT(*) FROM predictions WHERE evaluated = 1 AND data_anomaly = 1"
+            "SELECT COUNT(*) FROM predictions WHERE evaluated = 1 AND data_anomaly = 1 AND variant = ?"
             + (" AND side = ?" if side else ""),
             params,
         ).fetchone()[0]
@@ -343,7 +350,7 @@ def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
     try:
         dir_rows = dir_conn.execute(
             "SELECT side, pred_close, entry_price, target_close FROM predictions "
-            "WHERE evaluated = 1 AND data_anomaly = 0 AND target_close IS NOT NULL"
+            "WHERE evaluated = 1 AND data_anomaly = 0 AND variant = ? AND target_close IS NOT NULL"
             + (" AND side = ?" if side else ""),
             params,
         ).fetchall()
@@ -374,19 +381,19 @@ class MarketOrderStats:
     limit_avg_return: float | None  # 同じ予測のうち、指値が約定した分の平均リターン
 
 
-def get_market_order_stats(db_path: str, side: Side) -> MarketOrderStats:
+def get_market_order_stats(db_path: str, side: Side, variant: str = MAIN) -> MarketOrderStats:
     """成行は必ず約定する前提のため、指値が不成立だった予測も件数に含める。的中はリターン>0。"""
     conn = sqlite3.connect(db_path)
     try:
         count, wins, avg = conn.execute(
             "SELECT COUNT(*), COALESCE(SUM(oc_return > 0), 0), AVG(oc_return) FROM predictions "
-            "WHERE evaluated = 1 AND data_anomaly = 0 AND oc_return IS NOT NULL AND side = ?",
-            (side,),
+            "WHERE evaluated = 1 AND data_anomaly = 0 AND variant = ? AND oc_return IS NOT NULL AND side = ?",
+            (variant, side),
         ).fetchone()
         limit_avg = conn.execute(
             "SELECT AVG(result_return) FROM predictions "
-            "WHERE evaluated = 1 AND data_anomaly = 0 AND filled = 1 AND oc_return IS NOT NULL AND side = ?",
-            (side,),
+            "WHERE evaluated = 1 AND data_anomaly = 0 AND variant = ? AND filled = 1 AND oc_return IS NOT NULL AND side = ?",
+            (variant, side),
         ).fetchone()[0]
     finally:
         conn.close()

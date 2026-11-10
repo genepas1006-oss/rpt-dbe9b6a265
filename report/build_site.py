@@ -244,6 +244,16 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .fund-days td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .fund-days th:first-child, .fund-days td:first-child { text-align: left; }
 .prev-row .pn small.pn-note { display: block; margin-top: 2px; color: var(--text-muted); font-style: italic; }
+.experiment { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 14px; margin: 14px 0; padding: 0 14px; }
+.experiment > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; font-weight: 800; font-size: 0.95rem; color: var(--ink); }
+.experiment > summary::-webkit-details-marker { display: none; }
+.experiment > summary::after { content: "▼"; font-size: 0.7rem; color: var(--text-muted); }
+.experiment[open] > summary::after { content: "▲"; }
+.exp-badge { margin-left: auto; font-size: 0.68rem; font-weight: normal; color: var(--text-muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.experiment > .uf-help { margin: 0 0 10px; font-size: 0.8rem; line-height: 1.6; color: var(--text-muted); }
+.exp-sides { display: grid; gap: 16px; padding-bottom: 14px; }
+.exp-col-title { margin: 6px 2px 8px; font-size: 0.95rem; color: var(--text-muted); }
+.exp-col.buy .exp-col-title { color: var(--buy-text); } .exp-col.sell .exp-col-title { color: var(--sell-text); }
 .mi-review { margin: 6px 0 0; font-size: 0.8rem; line-height: 1.65; color: var(--text); }
 .glossary { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 4px 16px 14px; margin: 18px 0; }
 .glossary dl { margin: 8px 0 0; }
@@ -251,6 +261,7 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .glossary dd { margin: 2px 0 0; font-size: 0.8rem; line-height: 1.6; color: var(--text-muted); }
 .fund-note { margin: 8px 0 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
 @media (min-width: 860px) {
+  .exp-sides { grid-template-columns: 1fr 1fr; align-items: start; }
   /* 買い/売りの各ブロック（見出し・前営業日・成績・履歴・候補）を同じ行に揃える */
   .sides { grid-template-columns: 1fr 1fr; gap: 0 22px; }
   /* 上5ブロック＋候補カード5行 = 10行。カードも順位ごとに左右で同じ高さにする */
@@ -699,6 +710,30 @@ def _side_section(
     return f'<section class="side paired {side}"{id_attr}>{slots}</section>'
 
 
+def _experiment_block(parsed: ParsedReport) -> str:
+    """テスト枠（値動き重視・試験運用）。本番の直下に、折りたたみ（初期状態は閉じる）で置く。"""
+    if not (parsed.exp_buy_candidates or parsed.exp_sell_candidates):
+        return ""
+    cols = []
+    for label, side, stats, cands in (
+        ("買い", "buy", parsed.exp_buy_stats_lines, parsed.exp_buy_candidates),
+        ("売り", "sell", parsed.exp_sell_stats_lines, parsed.exp_sell_candidates),
+    ):
+        body = _stat_row(stats) if stats else ""
+        if cands:
+            body += f'<div class="card-grid">{"".join(_candidate_card(c, side) for c in cands)}</div>'
+        else:
+            body += '<p class="empty-msg">該当する候補がありませんでした。</p>'
+        cols.append(f'<section class="exp-col {side}"><h3 class="exp-col-title">{label}候補</h3>{body}</section>')
+    return (
+        '<details class="experiment"><summary><span>テスト枠（値動き重視）</span>'
+        '<span class="exp-badge">試験運用・効果は未確認</span></summary>'
+        '<p class="uf-help">当日の値動き（値幅）が大きい上位30%の銘柄の中から、本番と同じスコアで選んだ候補です。'
+        "本番の成績・仮想資金には含めず、別に記録しています。本番の候補とは別に、数週間追跡して効果を確かめる試験です。</p>"
+        f'<div class="exp-sides">{"".join(cols)}</div></details>'
+    )
+
+
 def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
     sections = _side_section(
         "買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled, latest, parsed.buy_missed,
@@ -715,7 +750,7 @@ def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
                 '<nav class="seg-nav"><a class="buy" href="#side-buy">買い候補</a>'
                 '<a class="sell" href="#side-sell">売り候補</a></nav>'
             )
-    return f'{nav}<div class="sides">{sections}</div>'
+    return f'{nav}<div class="sides">{sections}</div>{_experiment_block(parsed)}'
 
 
 def _month_label(year_month: str) -> str:

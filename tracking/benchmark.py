@@ -105,16 +105,16 @@ class ScoreEffect:
     excess: float
 
 
-def get_score_effect(db_path: str, side: Side) -> ScoreEffect | None:
+def get_score_effect(db_path: str, side: Side, variant: str = "main") -> ScoreEffect | None:
     init_benchmarks(db_path)
     conn = sqlite3.connect(db_path)
     try:
         rows = conn.execute(
             "SELECT p.prediction_date, AVG(p.result_return), b.avg_return FROM predictions p "
             "JOIN benchmarks b ON b.prediction_date = p.prediction_date AND b.side = p.side "
-            "WHERE p.evaluated = 1 AND p.data_anomaly = 0 AND p.filled = 1 AND p.result_return IS NOT NULL AND p.side = ? "
+            "WHERE p.evaluated = 1 AND p.data_anomaly = 0 AND p.variant = ? AND p.filled = 1 AND p.result_return IS NOT NULL AND p.side = ? "
             "GROUP BY p.prediction_date",
-            (side,),
+            (variant, side),
         ).fetchall()
     finally:
         conn.close()
