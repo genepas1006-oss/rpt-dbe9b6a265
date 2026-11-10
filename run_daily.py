@@ -7,6 +7,7 @@ from pathlib import Path
 from analysis.earnings import compute_earnings_score, compute_short_earnings_score
 from analysis.scoring import CandidateInput, rank_candidates
 from analysis.technical import compute_short_technical_score, compute_technical_score
+from analysis.consistency import resolve_direction_conflicts
 from analysis.fundamental_comment import build_snapshot
 from analysis.volatile_pool import select_volatile_pool
 from analysis.miss_review import snapshot_to_json
@@ -154,8 +155,10 @@ def run(prediction_date: date) -> Path:
     except Exception as e:  # noqa: BLE001
         print(f"[benchmark] 計算に失敗しました: {e}")
 
-    ranked_buy = rank_candidates(buy_candidates, side="buy")
-    ranked_sell = rank_candidates(sell_candidates, side="sell")
+    # 方向が矛盾する銘柄（買いにも売りにも載る等）を取り除いてから、上位を選ぶ
+    consistent_buy, consistent_sell = resolve_direction_conflicts(buy_candidates, sell_candidates)
+    ranked_buy = rank_candidates(consistent_buy, side="buy")
+    ranked_sell = rank_candidates(consistent_sell, side="sell")
     target_date = next_business_day(prediction_date)
 
     # 候補10銘柄のファンダメンタル（コメント用の参考情報）。取得できない銘柄は従来のコメントにする
@@ -186,8 +189,8 @@ def run(prediction_date: date) -> Path:
     exp_buy, exp_sell = [], []
     try:
         pool_codes = {c.code for c in select_volatile_pool(buy_candidates)}
-        exp_buy = rank_candidates([c for c in buy_candidates if c.code in pool_codes], side="buy")
-        exp_sell = rank_candidates([c for c in sell_candidates if c.code in pool_codes], side="sell")
+        exp_buy = rank_candidates([c for c in consistent_buy if c.code in pool_codes], side="buy")
+        exp_sell = rank_candidates([c for c in consistent_sell if c.code in pool_codes], side="sell")
         replace_predictions(DB_PATH, prediction_date, target_date, "buy", exp_buy, variant=VOLATILE)
         replace_predictions(DB_PATH, prediction_date, target_date, "sell", exp_sell, variant=VOLATILE)
     except Exception as e:  # noqa: BLE001
