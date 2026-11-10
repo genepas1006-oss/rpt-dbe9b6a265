@@ -54,6 +54,7 @@ class ParsedPreviousItem:
     result_return: str
     move: str
     market_return: str
+    note: str = ""  # 例: ギャップで有利に約定（なければ空）
 
 
 @dataclass(frozen=True)
@@ -134,8 +135,8 @@ def _parse_previous(body: str) -> ParsedPrevious | None:
             heading = parts[0]
             counts = parts[1].split("・") if len(parts) > 1 else []
         elif line.startswith("- "):
-            parts = [p.strip() for p in line.removeprefix("- ").split(" | ", 6)]
-            if len(parts) == 7:
+            parts = [p.strip() for p in line.removeprefix("- ").split(" | ", 7)]
+            if len(parts) in (7, 8):
                 items.append(ParsedPreviousItem(*parts))
     return ParsedPrevious(heading, counts, items) if items else None
 

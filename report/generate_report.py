@@ -35,6 +35,11 @@ def _stats_lines(stats: WinRateStats) -> list[str]:
         lines.append("- 的中率（約定分のみ）: データなし")
     else:
         lines.append(f"- 的中率（約定分のみ）: {stats.win_rate * 100:.1f}%")
+    if stats.direction_total:
+        lines.append(
+            f"- 方向の的中率（予測日終値比）: {stats.direction_hits / stats.direction_total * 100:.1f}%"
+            f"（{stats.direction_hits}/{stats.direction_total}件）"
+        )
     if stats.excluded_count:
         lines.append(f"- データ異常で除外（株式分割の疑い）: {stats.excluded_count}件")
     return lines
@@ -85,7 +90,7 @@ def _previous_section(side_label: str, prev: PreviousResults | None) -> list[str
         )
         lines.append(
             f"- {i.rank}位 | {i.name}（{i.code}） | {STATUS_LABEL[i.status]} | "
-            f"{i.entry_price:,.1f}円 | {ret} | {move} | {oc}"
+            f"{i.entry_price:,.1f}円 | {ret} | {move} | {oc}" + (f" | {i.note}" if i.note else "")
         )
     return lines
 

@@ -27,6 +27,26 @@ class TradeResult:
     fill_price: float | None = None
 
 
+DIRECTION_NOTE = "ギャップで有利に約定"
+
+
+def is_direction_hit(side: Side, base_price: float | None, target_close: float | None) -> bool:
+    """予測日の終値から見て、予想した向きに動いたか（買いは上昇、売りは下落。同値は外れ）。約定・損益は問わない。
+
+    承認済み（2026-11-10）。
+    """
+    if not base_price or base_price <= 0 or target_close is None:
+        return False
+    return target_close < base_price if side == "sell" else target_close > base_price
+
+
+def base_price_of(side: Side, pred_close: float | None, entry_price: float, entry_discount: float) -> float:
+    """予測日の終値。未記録の古い行は、指値から逆算して代用する（買い 指値÷(1-d) / 売り 指値÷(1+d)）。"""
+    if pred_close:
+        return pred_close
+    return entry_price / ((1 + entry_discount) if side == "sell" else (1 - entry_discount))
+
+
 def evaluate_trade(
     side: Side,
     entry_price: float,

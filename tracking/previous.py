@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from datetime import date
 
 from analysis.scoring import Side
+from config import ENTRY_DISCOUNT
+from tracking.trade_eval import DIRECTION_NOTE, base_price_of, is_direction_hit
 
 STATUS_LABEL = {"win": "的中", "loss": "不的中", "unfilled": "不成立", "pending": "未確定"}
 STATUS_ORDER = ("win", "loss", "unfilled", "pending")
@@ -27,6 +29,16 @@ class PreviousItem:
     target_open: float | None
     target_close: float | None
     oc_return: float | None
+    side: Side = "buy"
+    pred_close: float | None = None
+
+    @property
+    def note(self) -> str:
+        """的中（利益）なのに、予測日の終値から見て予想と逆に動いていた場合の注記（寄りのギャップで有利に約定）。"""
+        if self.status != "win" or self.target_close is None:
+            return ""
+        base = base_price_of(self.side, self.pred_close, self.entry_price, ENTRY_DISCOUNT)
+        return "" if is_direction_hit(self.side, base, self.target_close) else DIRECTION_NOTE
 
 
 @dataclass(frozen=True)
@@ -58,7 +70,7 @@ def get_previous_results(db_path: str, side: Side, before: date) -> PreviousResu
             return None
         rows = conn.execute(
             "SELECT target_date, code, name, entry_price, evaluated, filled, is_win, result_return, "
-            "target_open, target_close, oc_return FROM predictions "
+            "target_open, target_close, oc_return, pred_close FROM predictions "
             "WHERE side = ? AND prediction_date = ? ORDER BY id ASC",
             (side, last),
         ).fetchall()
@@ -75,6 +87,8 @@ def get_previous_results(db_path: str, side: Side, before: date) -> PreviousResu
             target_open=r[8],
             target_close=r[9],
             oc_return=r[10],
+            side=side,
+            pred_close=r[11],
         )
         for i, r in enumerate(rows, start=1)
     ]

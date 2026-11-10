@@ -243,6 +243,7 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .fund-days th { text-align: right; font-weight: normal; color: var(--text-muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .fund-days td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .fund-days th:first-child, .fund-days td:first-child { text-align: left; }
+.prev-row .pn small.pn-note { display: block; margin-top: 2px; color: var(--text-muted); font-style: italic; }
 .mi-review { margin: 6px 0 0; font-size: 0.8rem; line-height: 1.65; color: var(--text); }
 .glossary { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 4px 16px 14px; margin: 18px 0; }
 .glossary dl { margin: 8px 0 0; }
@@ -656,7 +657,9 @@ def _previous_block(prev: ParsedPrevious | None) -> str:
             f'<div class="prev-row {cls}"><span class="rk">{html.escape(i.rank.removesuffix("位"))}</span>'
             f'<span class="st {cls}">{html.escape(i.status)}</span>'
             f'<div class="pn"><b>{_stock_link(i.name)}</b>'
-            f"<small>指値{html.escape(i.entry_price)}{move}</small></div>"
+            f"<small>指値{html.escape(i.entry_price)}{move}</small>"
+            + (f'<small class="pn-note">{html.escape(i.note)}</small>' if i.note else "")
+            + "</div>"
             f'<div class="pr">{ret}<small>{sub_ret}</small></div></div>'
         )
     return (

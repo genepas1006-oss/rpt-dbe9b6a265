@@ -20,7 +20,8 @@ from datetime import date, datetime
 
 from analysis.scoring import RankedCandidate, Side
 from analysis.miss_analysis import classify_miss
-from tracking.trade_eval import evaluate_trade
+from config import ENTRY_DISCOUNT
+from tracking.trade_eval import base_price_of, evaluate_trade, is_direction_hit
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS predictions (
@@ -310,6 +311,8 @@ class WinRateStats:
     win_count: int
     win_rate: float | None  # filled_countが0の場合はNone
     excluded_count: int = 0  # データ異常（株式分割の疑い）で除外した件数
+    direction_total: int = 0  # 方向の的中率の分母（答え合わせ済みの全予測。データ異常は除く）
+    direction_hits: int = 0  # 予測日の終値から見て、予想した向きに動いた件数
 
 
 def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
@@ -336,12 +339,27 @@ def get_win_rate_stats(db_path: str, side: Side | None = None) -> WinRateStats:
         conn.close()
 
     win_rate = wins / filled if filled > 0 else None
+    dir_conn = sqlite3.connect(db_path)
+    try:
+        dir_rows = dir_conn.execute(
+            "SELECT side, pred_close, entry_price, target_close FROM predictions "
+            "WHERE evaluated = 1 AND data_anomaly = 0 AND target_close IS NOT NULL"
+            + (" AND side = ?" if side else ""),
+            params,
+        ).fetchall()
+    finally:
+        dir_conn.close()
+    direction_hits = sum(
+        is_direction_hit(s, base_price_of(s, pc, ep, ENTRY_DISCOUNT), tc) for s, pc, ep, tc in dir_rows
+    )
     return WinRateStats(
         total_predictions=total,
         filled_count=filled,
         win_count=wins,
         win_rate=win_rate,
         excluded_count=excluded,
+        direction_total=len(dir_rows),
+        direction_hits=direction_hits,
     )
 
 
