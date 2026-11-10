@@ -110,7 +110,7 @@ def _missed_section(side_label: str, missed: list[MissedPrediction]) -> list[str
         lines.append(
             f"- {m.prediction_date.isoformat()} | {m.target_date.isoformat()} | "
             f"{m.name}（{m.code}） | {m.entry_price:,.1f}円 | {m.result_return * 100:+.2f}% | "
-            f"{'・'.join(m.causes)} | {m.detail}"
+            f"{'・'.join(m.causes)} | {m.detail}" + (f" | {m.review}" if m.review else "")
         )
     return lines
 

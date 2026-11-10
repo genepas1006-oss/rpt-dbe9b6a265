@@ -66,7 +66,20 @@ EXTRA_COLUMNS = {
     "oc_return": "REAL",  # 2026-11-09: 成行（寄り→引け）のリターン（参考）
     "fill_price": "REAL",  # 2026-11-09: 寄り値補正後の約定価格（NULLは補正前の評価）
     "data_anomaly": "INTEGER NOT NULL DEFAULT 0",  # 2026-11-10: 株式分割などの疑いで成績から除外する行
+    "fundamental_json": "TEXT",  # 2026-11-10: 予測時のファンダメンタルの材料（外れた予想の分析用）
+    "earnings_days": "INTEGER",  # 2026-11-10: 予測時点での次回決算までの日数
 }
+
+MISS_REVIEWS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS miss_reviews (
+    prediction_id INTEGER PRIMARY KEY,
+    primary_cause TEXT NOT NULL,
+    secondary_causes TEXT NOT NULL,
+    metrics TEXT NOT NULL,
+    review_text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+"""
 
 # 承認済み（2026-11-10）: 予測日終値に対する対象日終値の比 r が、r < 0.65 または r > 1.5 なら
 # 株式分割などによるデータ異常の疑いとして成績・仮想資金・全銘柄平均との比較から除外する。
@@ -85,6 +98,7 @@ def init_db(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     try:
         conn.execute(SCHEMA)
+        conn.execute(MISS_REVIEWS_SCHEMA)
         existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(predictions)")}
         if "side" not in existing_columns:
             conn.execute("ALTER TABLE predictions ADD COLUMN side TEXT NOT NULL DEFAULT 'buy'")
@@ -101,7 +115,10 @@ def save_predictions(
     prediction_date: date,
     target_date: date,
     candidates: list[RankedCandidate],
+    extras: dict[str, tuple[str | None, int | None]] | None = None,
 ) -> None:
+    """extras: 銘柄コード → (予測時のファンダメンタル材料のJSON, 次回決算までの日数)。外れた予想の分析用に記録する。"""
+    extras = extras or {}
     conn = sqlite3.connect(db_path)
     try:
         now = datetime.now().isoformat()
@@ -110,8 +127,9 @@ def save_predictions(
             INSERT INTO predictions (
                 prediction_date, code, name, side, total_score, technical_score,
                 earnings_score, entry_price, reasons, target_date,
-                evaluated, created_at, pred_close, pred_daily_return, pred_volume_ratio
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+                evaluated, created_at, pred_close, pred_daily_return, pred_volume_ratio,
+                fundamental_json, earnings_days
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -129,6 +147,8 @@ def save_predictions(
                     c.day_close or None,
                     c.daily_return,
                     c.volume_ratio,
+                    extras.get(c.code, (None, None))[0],
+                    extras.get(c.code, (None, None))[1],
                 )
                 for c in candidates
             ],
@@ -144,6 +164,7 @@ def replace_predictions(
     target_date: date,
     side: Side,
     candidates: list[RankedCandidate],
+    extras: dict[str, tuple[str | None, int | None]] | None = None,
 ) -> None:
     """同じ予測日・同じsideの予測を最新の1セットに置き換える（再実行しても二重登録しない）。
 
@@ -168,7 +189,7 @@ def replace_predictions(
     finally:
         conn.close()
     if candidates:
-        save_predictions(db_path, prediction_date, target_date, candidates)
+        save_predictions(db_path, prediction_date, target_date, candidates, extras)
 
 
 @dataclass(frozen=True)

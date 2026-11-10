@@ -7,6 +7,8 @@ from pathlib import Path
 from analysis.earnings import compute_earnings_score, compute_short_earnings_score
 from analysis.scoring import CandidateInput, rank_candidates
 from analysis.technical import compute_short_technical_score, compute_technical_score
+from analysis.fundamental_comment import build_snapshot
+from analysis.miss_review import snapshot_to_json
 from analysis.market_gaps import market_overnight_gaps, save_market_gaps
 from config import NIKKEI225
 from data_sources.yfinance_source import YFinanceSource
@@ -19,6 +21,7 @@ from tracking.benchmark import compute_missing_benchmarks, get_score_effect
 from tracking.evaluate import evaluate_pending_predictions
 from tracking.refill import backfill_target_open, flag_anomalies, recompute_fills, repair_inconsistent_opens
 from tracking.market import index_daily_returns
+from tracking.miss_reviews import update_miss_reviews
 from tracking.missed import get_missed_predictions
 from tracking.previous import get_previous_results
 from tracking.predictions_db import get_market_order_stats, get_win_rate_stats, init_db, replace_predictions
@@ -83,6 +86,7 @@ def run(prediction_date: date) -> Path:
         backfill_target_open(DB_PATH, source)
         recompute_fills(DB_PATH)
         flag_anomalies(DB_PATH)
+        update_miss_reviews(DB_PATH)  # 外れた予想の検証メモ（過去分の後追いも含む）
     except Exception as e:  # noqa: BLE001
         print(f"[refill] 再計算に失敗しました: {e}")
 
@@ -153,11 +157,6 @@ def run(prediction_date: date) -> Path:
     ranked_sell = rank_candidates(sell_candidates, side="sell")
     target_date = next_business_day(prediction_date)
 
-    replace_predictions(DB_PATH, prediction_date, target_date, "buy", ranked_buy)
-    replace_predictions(DB_PATH, prediction_date, target_date, "sell", ranked_sell)
-
-    buy_stats = get_win_rate_stats(DB_PATH, side="buy")
-    sell_stats = get_win_rate_stats(DB_PATH, side="sell")
     # 候補10銘柄のファンダメンタル（コメント用の参考情報）。取得できない銘柄は従来のコメントにする
     fundamentals = {}
     for c in [*ranked_buy, *ranked_sell]:
@@ -172,6 +171,18 @@ def run(prediction_date: date) -> Path:
         code: next_earnings_days(all_earnings.get(code, []), prediction_date)
         for code in {c.code for c in [*ranked_buy, *ranked_sell]}
     }
+    # 予測時の材料（ファンダメンタル・決算までの日数）を記録しておき、外れたときの分析で突き合わせる
+    extras = {}
+    for c in [*ranked_buy, *ranked_sell]:
+        f = fundamentals.get(c.code)
+        snapshot = snapshot_to_json(build_snapshot(f, c.day_close)) if f is not None else None
+        extras[c.code] = (snapshot, earnings_days.get(c.code))
+
+    replace_predictions(DB_PATH, prediction_date, target_date, "buy", ranked_buy, extras)
+    replace_predictions(DB_PATH, prediction_date, target_date, "sell", ranked_sell, extras)
+
+    buy_stats = get_win_rate_stats(DB_PATH, side="buy")
+    sell_stats = get_win_rate_stats(DB_PATH, side="sell")
     report_text = generate_report(
         prediction_date,
         target_date,

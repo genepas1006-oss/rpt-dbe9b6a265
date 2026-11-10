@@ -140,6 +140,11 @@ def build_fundamental_outlook(f: Fundamentals, close: float, side: str) -> str |
     return f"ファンダメンタル面は材料が混在しており（{names}）、"
 
 
+def build_snapshot(f: Fundamentals, close: float) -> list[Item]:
+    """予測時点の材料（外れた予想の分析で、あとから突き合わせるために記録する）。"""
+    return build_items(f, close)
+
+
 def earnings_notice(days: int | None) -> str:
     if days is None or days < 0 or days > EARNINGS_NOTICE_DAYS:
         return ""

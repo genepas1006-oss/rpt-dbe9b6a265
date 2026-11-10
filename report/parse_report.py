@@ -42,6 +42,7 @@ class ParsedMiss:
     result_return: str
     causes: list[str]
     detail: str
+    review: str = ""  # 検証メモ（なければ空）
 
 
 @dataclass(frozen=True)
@@ -118,9 +119,9 @@ def _parse_missed(body: str) -> list[ParsedMiss]:
         line = line.strip()
         if not line.startswith("- "):
             continue
-        parts = [p.strip() for p in line.removeprefix("- ").split(" | ", 6)]
-        if len(parts) == 7:
-            items.append(ParsedMiss(*parts[:5], parts[5].split("・"), parts[6]))
+        parts = [p.strip() for p in line.removeprefix("- ").split(" | ", 7)]
+        if len(parts) in (7, 8):
+            items.append(ParsedMiss(*parts[:5], parts[5].split("・"), parts[6], parts[7] if len(parts) == 8 else ""))
     return items
 
 

@@ -26,6 +26,7 @@ class MissedPrediction:
     pred_close: float | None
     target_open: float | None
     market_return: float | None
+    review: str = ""  # 検証メモ（主因・値動きの経過・次回への検討）。未作成なら空
 
     @property
     def detail(self) -> str:
@@ -44,7 +45,8 @@ def get_missed_predictions(db_path: str, side: Side) -> list[MissedPrediction]:
     try:
         rows = conn.execute(
             "SELECT prediction_date, target_date, code, name, side, entry_price, target_close, "
-            "result_return, miss_causes, pred_close, target_open, market_return FROM predictions "
+            "result_return, miss_causes, pred_close, target_open, market_return, "
+            "(SELECT review_text FROM miss_reviews r WHERE r.prediction_id = predictions.id) FROM predictions "
             "WHERE evaluated = 1 AND data_anomaly = 0 AND filled = 1 AND is_win = 0 AND miss_causes IS NOT NULL "
             "AND side = ? ORDER BY prediction_date DESC, id ASC",
             (side,),
@@ -65,6 +67,7 @@ def get_missed_predictions(db_path: str, side: Side) -> list[MissedPrediction]:
             pred_close=r[9],
             target_open=r[10],
             market_return=r[11],
+            review=r[12] or "",
         )
         for r in rows
     ]

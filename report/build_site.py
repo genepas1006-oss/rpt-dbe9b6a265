@@ -22,6 +22,9 @@ from pathlib import Path
 
 from datetime import date
 
+from html import unescape as html_module_unescape
+
+from report.glossary import terms_in
 from report.md_to_html import color_deltas
 from report.premarket import Premarket, load_premarket
 from tracking.virtual_fund import VirtualFund
@@ -240,6 +243,11 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .fund-days th { text-align: right; font-weight: normal; color: var(--text-muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .fund-days td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .fund-days th:first-child, .fund-days td:first-child { text-align: left; }
+.mi-review { margin: 6px 0 0; font-size: 0.8rem; line-height: 1.65; color: var(--text); }
+.glossary { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 4px 16px 14px; margin: 18px 0; }
+.glossary dl { margin: 8px 0 0; }
+.glossary dt { font-weight: 800; font-size: 0.85rem; color: var(--ink); margin-top: 10px; }
+.glossary dd { margin: 2px 0 0; font-size: 0.8rem; line-height: 1.6; color: var(--text-muted); }
 .fund-note { margin: 8px 0 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
 @media (min-width: 860px) {
   /* 買い/売りの各ブロック（見出し・前営業日・成績・履歴・候補）を同じ行に揃える */
@@ -480,6 +488,11 @@ def _unfilled_block(items: list[ParsedUnfilled]) -> str:
     )
 
 
+def _review_html(review: str) -> str:
+    """検証メモを、項目（約定価格・副次要因・次回への検討）ごとに改行して読みやすくする。"""
+    return re.sub(r" (約定価格|副次要因:|次回への検討:|日経平均のデータが欠けている)", r"<br>\1", html.escape(review))
+
+
 def _miss_row(m: ParsedMiss) -> str:
     chips = "".join(f'<span class="chip">{html.escape(c)}</span>' for c in m.causes)
     return (
@@ -487,7 +500,9 @@ def _miss_row(m: ParsedMiss) -> str:
         f'<div class="uf-main"><span class="uf-name">{_stock_link(m.name)}</span>'
         f'<span class="uf-gap">{html.escape(m.result_return)}</span></div>'
         f'<p class="chips mi-chips">{chips}</p>'
-        f'<div class="uf-note">{html.escape(m.detail)}</div></div>'
+        f'<div class="uf-note">{html.escape(m.detail)}</div>'
+        + (f'<p class="mi-review">{_review_html(m.review)}</p>' if m.review else "")
+        + "</div>"
     )
 
 
@@ -513,7 +528,8 @@ def _miss_block(items: list[ParsedMiss]) -> str:
         f'<span class="uf-count">{len(items)}件</span></summary>'
         f'<p class="uf-help">約定したものの、的中しなかった予測の一覧です。原因は、翌営業日の地合い・寄り付き・'
         f"予測時の勢いから自動で付けたタグで、複数付くことがあります。"
-        f"原因の記録を始めた後の予測だけが対象です。</p>"
+        f"原因の記録を始めた後の予測だけが対象です。"
+        f"各予測の「主因」「副次要因」は、値動きの経過とあわせた検証メモです。分からない用語は、ページ内の「用語の説明」をご覧ください。</p>"
         f'<p class="chips mi-summary">{summary_chips}</p>'
         f'<p class="mi-suggest"><b>次回への示唆</b>　{html.escape(build_suggestion(tag_lists))}</p>'
         f'<div class="uf-list">{body}</div></details>'
@@ -727,6 +743,20 @@ def _day_row(stem: str, parsed: ParsedReport, body: str) -> str:
     )
 
 
+def _glossary_block(*html_parts: str) -> str:
+    """ページ本文に出てくる専門用語の意味を、本文の下に注意書きとして載せる。"""
+    text = html_module_unescape(re.sub(r"<[^>]+>", " ", " ".join(html_parts)))
+    entries = terms_in(text)
+    if not entries:
+        return ""
+    items = "".join(f"<dt>{html.escape(t)}</dt><dd>{html.escape(d)}</dd>" for t, d in entries)
+    return (
+        '<section class="glossary"><h2 class="section-title">用語の説明</h2>'
+        '<p class="fund-note">このページに出てくる専門用語の、一般的な意味です。</p>'
+        f"<dl>{items}</dl></section>"
+    )
+
+
 def _is_premarket_empty(parsed: ParsedReport) -> bool:
     if parsed.buy_candidates or parsed.sell_candidates:
         return False
@@ -814,6 +844,7 @@ def build_index(
 {_fund_block(fund)}
 {env_html}
 {latest_html}
+{_glossary_block(_fund_block(fund), env_html, latest_html)}
 <div class="history-head"><h2 class="section-title">過去のレポート</h2><span class="count">{history_count}日分</span></div>
 {history_section}
 <script>
