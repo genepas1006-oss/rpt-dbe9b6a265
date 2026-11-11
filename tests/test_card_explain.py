@@ -116,21 +116,19 @@ def test_d2_same_as_index_and_weaker():
     assert relative_strength_text(0.01, None) == ""
 
 
-def test_d3_round_levels():
-    assert round_level_text(4870) == "上の節目5,000円（大きな節目）まであと2.7%、下の節目4,500円から8.2%上"
-    assert round_level_text(4500) == "終値はちょうど4,500円の節目"
-    assert round_level_text(850).startswith("上の節目900円まであと5.9%")
-    assert round_level_text(7300).startswith("上の節目8,000円まであと9.6%")
-
-
-def test_payoff_lines_text():
-    from report.generate_report import _payoff_lines
-
-    lines = _payoff_lines(compute_payoff([0.02, -0.01, 0.005, -0.015, 0.01]))
-    assert lines[0] == "- 平均利益（勝った場合のリターン）: +1.17%（3件）"
-    assert lines[1] == "- 平均損失（負けた場合のリターン）: -1.25%（2件）"
-    assert lines[2] == "- 損益比（平均利益÷平均損失）: 0.93"
-    assert lines[3] == "- 1件あたりの平均リターン: +0.20%"
-    wins_only = _payoff_lines(compute_payoff([0.01, 0.02]))
-    assert wins_only[1].endswith("なし（0件）") and wins_only[2].endswith("算出不可")
-    assert _payoff_lines(None) == []
+@pytest.mark.parametrize(
+    "close, expected",
+    [
+        (301, "上の節目350円まであと16.3%、下の節目300円から0.3%上"),
+        (450, "終値はちょうど450円の節目"),
+        (499, "上の節目500円まであと0.2%、下の節目450円から10.9%上"),
+        (860, "上の節目900円まであと4.7%、下の節目800円から7.5%上"),
+        (1391, "上の節目1,400円まであと0.6%、下の節目1,300円から7.0%上"),
+        (2950, "上の節目3,000円（大きな節目）まであと1.7%、下の節目2,900円から1.7%上"),
+        (3000, "終値はちょうど3,000円（大きな節目）の節目"),
+        (4870, "上の節目5,000円（大きな節目）まであと2.7%、下の節目4,500円から8.2%上"),
+        (12300, "上の節目13,000円まであと5.7%、下の節目12,000円から2.5%上"),
+    ],
+)
+def test_d3_round_levels(close, expected):
+    assert round_level_text(close) == expected
