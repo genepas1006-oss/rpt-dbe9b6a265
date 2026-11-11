@@ -90,12 +90,12 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .tag.fact { background: var(--win-bg); color: var(--win); }
 .tag.guess { background: var(--loss-bg); color: var(--loss); }
 .tag.unknown { background: var(--idle-bg); color: var(--idle); }
-.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow); }
+.stat-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-bottom: 12px; }
+.stat-tile { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow); }
 .stat-tile.feature { grid-column: 1 / -1; }
 .stat-tile .cap { font-size: 0.72rem; color: var(--text-muted); display: block; }
 .stat-tile .val { font-size: 1.35rem; font-weight: 800; line-height: 1.25; color: var(--ink); }
-.stat-tile .sub { display: inline-block; white-space: nowrap; font-size: 0.78rem; font-weight: normal; color: var(--text-muted); margin-left: 4px; }
+.stat-tile .sub { display: inline-block; white-space: normal; font-size: 0.78rem; font-weight: normal; color: var(--text-muted); margin-left: 4px; }
 .stat-tile .bar { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 8px; overflow: hidden; }
 .stat-tile .bar > i { display: block; height: 100%; border-radius: 3px; }
 .side.buy .bar > i { background: var(--buy); } .side.sell .bar > i { background: var(--sell); }
@@ -281,7 +281,7 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
   /* 買い/売りの各ブロック（見出し・前営業日・成績・履歴・候補）を同じ行に揃える */
   .sides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 22px; }
   /* 上5ブロック＋候補カード5行 = 10行。カードも順位ごとに左右で同じ高さにする */
-  .sides > .side.paired { display: grid; grid-row: span 10; grid-template-rows: subgrid; row-gap: 0; }
+  .sides > .side.paired { display: grid; grid-template-columns: minmax(0, 1fr); grid-row: span 10; grid-template-rows: subgrid; row-gap: 0; }
   .side.paired > .slot.cards { grid-row: span 5; display: grid; grid-template-rows: subgrid; row-gap: 10px; }
   .side.paired > .slot.cards > .card-grid { display: contents; }
   .side.paired > .slot.cards > .empty-msg { grid-row: 1; }
