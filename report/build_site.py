@@ -27,6 +27,7 @@ from html import unescape as html_module_unescape
 
 from analysis.market_calendar import next_business_day
 from report.forecast_set import ForecastSet, evening_set, fmt_md_hm, to_json_dict
+from report.intraday_report import BASIS, RULE, ParsedIntraday, ParsedPick, parse_intraday_report
 from report.glossary import terms_in
 from report.md_to_html import color_deltas
 from report.premarket import Premarket, load_premarket
@@ -102,11 +103,20 @@ _FSET_SCRIPT = r"""
       cls = 'is-waiting';
     } else {
       msg = clock + '<b>現在、有効な予想はありません。</b>下の予想は期限切れです（前日夜の予想は前場向けで、後場の売買には使えません）。'
-        + '後場向けの予想は、現時点では出していません。次の更新で新しい予想が出ます（目安: 平日16:10）。';
+        + '昼の予想は 11:50 ごろ、夜の予想は 16:10 ごろに更新されます。';
       cls = 'is-none';
     }
     var today = tD.format(new Date(now)), wd = tW.format(new Date(now));
     var latestTarget = sets.reduce(function (m, s) { return s.target_date > m ? s.target_date : m; }, '');
+    function hasToday(slot) { return sets.some(function (s) { return s.slot === slot && s.target_date === today; }); }
+    var mins0 = parseInt(hm(now).slice(0, 2), 10) * 60 + parseInt(hm(now).slice(3, 5), 10);
+    var weekday = (wd !== 'Sat' && wd !== 'Sun');
+    if (weekday && mins0 >= 580 && mins0 < 690 && !hasToday('open')) {
+      msg += '<span class="nb-alert">寄り枠（9:25更新）がまだ反映されていません（休場日の場合は無視してください）。</span>';
+    }
+    if (weekday && mins0 >= 725 && mins0 < 930 && !hasToday('lunch')) {
+      msg += '<span class="nb-alert">昼の予想（11:50更新）がまだ反映されていません（休場日の場合は無視してください）。</span>';
+    }
     var minutes = parseInt(hm(now).slice(0, 2), 10) * 60 + parseInt(hm(now).slice(3, 5), 10);
     if (wd !== 'Sat' && wd !== 'Sun' && minutes >= 540 && minutes < 930 && latestTarget && latestTarget < today) {
       msg += '<span class="nb-alert">本日（' + today + '）向けの予想がまだ反映されていません。表示中の予想は古い情報です（休場日の場合は、この表示は無視してください）。</span>';
@@ -342,7 +352,18 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .fset-note { margin: 6px 0 0; font-size: 0.8rem; color: var(--text); font-weight: 700; }
 .fset.is-expired .fset-note { color: var(--alert); }
 .fset-body > summary { cursor: pointer; font-size: 0.78rem; color: var(--text-muted); padding: 4px 2px 8px; }
-.fset-body.is-expired .sides, .fset-body.is-expired .experiment { opacity: 0.55; }
+.fset-body.is-expired .sides, .fset-body.is-expired .intraday .uf-help { margin: 0 0 10px; font-size: 0.8rem; line-height: 1.6; color: var(--text-muted); }
+.fset-body.is-expired .exp-sides { opacity: 0.55; }
+.fset-body.is-expired .ipick-price, .fset-body.is-expired .ipick .stock-link { text-decoration: line-through; }
+.ipick { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-bottom: 8px; }
+.ipick-main { display: flex; align-items: center; gap: 8px; }
+.ipick-rank { width: 22px; height: 22px; border-radius: 7px; background: var(--surface-2); display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; }
+.ipick-name { font-weight: 700; flex: 1; min-width: 0; }
+.ipick-price { margin-top: 4px; font-size: 0.95rem; font-weight: 800; color: var(--ink); }
+.ipick-price b { margin-left: 8px; font-size: 0.8rem; color: var(--text-muted); }
+.ipick-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.ipick-extra { font-size: 0.78rem; color: var(--text-muted); margin: 0 0 8px; }
+.experiment { opacity: 0.55; }
 .fset-body.is-expired .card-price, .fset-body.is-expired .stock-link { text-decoration: line-through; }
 .experiment { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 14px; margin: 14px 0; padding: 0 14px; }
 .experiment > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; font-weight: 800; font-size: 0.95rem; color: var(--ink); }
@@ -917,6 +938,40 @@ def _fset_header(fs: ForecastSet, set_id: str) -> str:
     )
 
 
+def _ipick_card(p: ParsedPick, side: str) -> str:
+    label = "買い" if side == "buy" else "売り"
+    return (
+        f'<div class="ipick {side}"><div class="ipick-main"><span class="ipick-rank">{html.escape(p.rank)}</span>'
+        f'<span class="ipick-name">{_stock_link(p.name)}</span><span class="side-badge {side}">{label}</span></div>'
+        f'<div class="ipick-price">基準価格 {html.escape(p.ref_price)}<b>{html.escape(p.move)}</b></div>'
+        f'<div class="ipick-detail">{html.escape(p.detail)}</div></div>'
+    )
+
+
+def _intraday_block(ir: ParsedIntraday, fset: ForecastSet, set_id: str) -> str:
+    """寄り枠・昼の予想。最新の予想セットとして、夜の予想の上に置く。期限切れは画面側で自動的に折りたたむ。"""
+    cols = []
+    for label, side, stats, picks, extra in (
+        ("買い", "buy", ir.buy_stats_lines, ir.buy_picks, ir.buy_extra),
+        ("売り", "sell", ir.sell_stats_lines, ir.sell_picks, ir.sell_extra),
+    ):
+        body = _stat_row(stats) if stats else ""
+        body += "".join(_ipick_card(p, side) for p in picks) or '<p class="empty-msg">該当する候補がありませんでした。</p>'
+        if extra:
+            body += f'<p class="ipick-extra">ほか{extra}件（動きの大きい順に表示）</p>'
+        cols.append(f'<section class="exp-col {side}"><h3 class="exp-col-title">{label}候補</h3>{body}</section>')
+    intro = (
+        f'<p class="uf-help">試験運用・効果は未確認。{html.escape(RULE[ir.slot])}。'
+        f"的中は、{html.escape(BASIS[ir.slot])}から大引けまでに予想方向へ動いたか（同値は外れ）で判定し、本番の成績・仮想資金には含めません。</p>"
+    )
+    return (
+        f'<div class="report intraday">{_fset_header(fset, set_id)}'
+        f'<details class="fset-body" data-id="{html.escape(set_id)}" open>'
+        f"<summary>候補一覧（期限切れのときは折りたたまれます。タップで開閉）</summary>{intro}"
+        f'<div class="exp-sides">{"".join(cols)}</div></details></div>'
+    )
+
+
 def _banner_html() -> str:
     return (
         '<div id="now-banner" class="now-banner is-none" role="status" aria-live="polite">'
@@ -958,7 +1013,7 @@ def build_index(
 
     # 市場の取引前に作られた空のレポート（買い・売りとも候補なし、かつ前営業日の結果が全て未確定）は載せない
     parsed_by_path = {}
-    for path in sorted(reports_dir.glob("*.md"), reverse=True):
+    for path in sorted(reports_dir.glob("????-??-??.md"), reverse=True):
         parsed = parse_report(path.read_text(encoding="utf-8"))
         if not _is_premarket_empty(parsed):
             parsed_by_path[path] = parsed
@@ -988,6 +1043,25 @@ def build_index(
         else:
             year_month = path.stem[:7]
             history_by_month[year_month].append(_day_row(path.stem, parsed, body))
+
+    # 寄り枠・昼の予想（日中の試験運用枠）。最新の夜のレポートの予測日以降のものを、夜の予想の上に置く
+    intraday_blocks: list[tuple[str, str]] = []
+    if report_files:
+        floor = report_files[0].stem
+        for slot in ("open", "lunch"):
+            for ip in reports_dir.glob(f"????-??-??-{slot}.md"):
+                day = ip.stem[:10]
+                if day < floor:
+                    continue
+                ir = parse_intraday_report(ip.read_text(encoding="utf-8"), slot, day)
+                if ir.forecast_set is None:
+                    continue
+                sid = f"{day}-{slot}"
+                page_sets.append((sid, ir.forecast_set))
+                created = ir.forecast_set.created_at.isoformat() if ir.forecast_set.created_at else ir.forecast_set.valid_from.isoformat()
+                intraday_blocks.append((created, _intraday_block(ir, ir.forecast_set, sid)))
+        intraday_blocks.sort(key=lambda t: t[0], reverse=True)  # 作成が新しいものを上に
+        latest_html = "".join(b for _, b in intraday_blocks) + latest_html
 
     if not report_files:
         latest_html = "<p>まだレポートが生成されていません。</p>"

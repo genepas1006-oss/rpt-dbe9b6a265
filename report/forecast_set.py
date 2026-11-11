@@ -55,6 +55,24 @@ def evening_set(prediction_date: date, target_date: date, created_at: datetime |
     )
 
 
+def open_set(day: date, created_at: datetime | None) -> ForecastSet:
+    """寄り枠: 寄り付きのギャップの逆張り（試験運用）。有効期間は当日の前場。"""
+    return ForecastSet(
+        slot="open", created_at=created_at, data_as_of=_at(day, AM_OPEN), data_note="寄り付きの始値",
+        target_date=day, session="am", valid_from=_at(day, AM_OPEN), valid_until=_at(day, AM_CLOSE),
+        note="試験運用・効果は未確認。寄り付きで大きくずれた銘柄の逆張りです。後場の売買には使えません。",
+    )
+
+
+def lunch_set(day: date, created_at: datetime | None) -> ForecastSet:
+    """昼の予想: 前場の動きの逆張り（試験運用）。有効期間は当日の後場。"""
+    return ForecastSet(
+        slot="lunch", created_at=created_at, data_as_of=_at(day, AM_CLOSE), data_note="前場終了（約15分遅れのデータ）",
+        target_date=day, session="pm", valid_from=_at(day, PM_OPEN), valid_until=_at(day, PM_CLOSE),
+        note="試験運用・効果は未確認。後場（12:30〜15:30）向けの予想です。",
+    )
+
+
 def state_at(fs: ForecastSet, now: datetime) -> tuple[str, timedelta | None]:
     """（状態, 残り or 開始までの時間）。期限切れはNone。"""
     if now < fs.valid_from:

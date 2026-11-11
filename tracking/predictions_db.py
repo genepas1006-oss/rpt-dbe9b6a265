@@ -225,7 +225,7 @@ def get_pending_predictions(db_path: str, as_of: date) -> list[PendingPrediction
     try:
         rows = conn.execute(
             "SELECT id, code, side, entry_price, target_date FROM predictions "
-            "WHERE evaluated = 0 AND target_date <= ?",
+            "WHERE evaluated = 0 AND variant IN ('main', 'volatile') AND target_date <= ?",
             (as_of.isoformat(),),
         ).fetchall()
     finally:

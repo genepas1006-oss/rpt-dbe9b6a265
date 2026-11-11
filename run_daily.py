@@ -25,6 +25,7 @@ from tracking.benchmark import compute_missing_benchmarks, get_score_effect
 from tracking.evaluate import evaluate_pending_predictions
 from tracking.refill import backfill_target_open, flag_anomalies, recompute_fills, repair_inconsistent_opens
 from tracking.market import index_daily_returns
+from tracking.intraday_db import evaluate_intraday_predictions
 from tracking.miss_reviews import update_miss_reviews
 from tracking.missed import get_missed_predictions
 from tracking.previous import get_previous_results
@@ -75,6 +76,10 @@ def run(prediction_date: date) -> Path:
     evaluate_pending_predictions(
         DB_PATH, source, as_of=prediction_date, market_returns=index_daily_returns(index_bars)
     )
+    try:  # 寄り枠・昼の予想（試験運用）の答え合わせ。大引けの確定後だけ判定する。失敗しても続ける
+        evaluate_intraday_predictions(DB_PATH, source)
+    except Exception as e:  # noqa: BLE001
+        print(f"[intraday] 答え合わせに失敗しました: {e}")
 
     # 約定価格の補正（寄り値が有利なら寄り値で約定）を過去分にも反映する。失敗しても続ける
     try:

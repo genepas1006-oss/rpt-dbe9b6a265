@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 
 @dataclass(frozen=True)
@@ -14,6 +14,18 @@ class DailyBar:
     """1日分の四本値・出来高。"""
 
     trade_date: date
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+
+
+@dataclass(frozen=True)
+class IntradayBar:
+    """日中の足（始まりの時刻、日本時間）。"""
+
+    start: datetime
     open: float
     high: float
     low: float
@@ -46,6 +58,10 @@ class DataSource(ABC):
         銘柄自体が取得不可の場合は空リストを返す（例外を送出しない）。
         """
         raise NotImplementedError
+
+    def get_intraday_bars(self, code: str, day: date) -> list[IntradayBar]:
+        """指定日の日中の足（5分足）。取得できない場合は空リスト（例外を送出しない）。"""
+        return []
 
     def get_fundamentals(self, code: str) -> Fundamentals | None:
         """指定銘柄のファンダメンタル指標を取得する。未対応のデータ元・取得失敗はNone（例外を送出しない）。"""

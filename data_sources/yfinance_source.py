@@ -1,14 +1,15 @@
 """yfinanceを用いたデフォルトデータソース実装。"""
 
 import logging
-from datetime import date, timedelta
+from datetime import date, timedelta, timezone
 
 import yfinance as yf
 
 from config import yfinance_symbol
-from data_sources.base import DailyBar, DataSource, Fundamentals
+from data_sources.base import DailyBar, DataSource, Fundamentals, IntradayBar
 
 logger = logging.getLogger(__name__)
+JST = timezone(timedelta(hours=9))
 
 
 class YFinanceSource(DataSource):
@@ -46,6 +47,25 @@ class YFinanceSource(DataSource):
                 logger.warning("株価データの行変換に失敗: %s %s", symbol, idx, exc_info=True)
                 continue
 
+        return bars
+
+    def get_intraday_bars(self, code: str, day: date) -> list[IntradayBar]:
+        symbol = yfinance_symbol(code)
+        try:
+            hist = yf.Ticker(symbol).history(period="5d", interval="5m")
+        except Exception:
+            logger.warning("日中の足の取得に失敗: %s", symbol, exc_info=True)
+            return []
+        bars = []
+        for idx, row in hist.iterrows():
+            try:
+                start = idx.to_pydatetime().astimezone(JST)
+                if start.date() != day:
+                    continue
+                bars.append(IntradayBar(start, float(row["Open"]), float(row["High"]), float(row["Low"]),
+                                        float(row["Close"]), int(row["Volume"])))
+            except (KeyError, ValueError, TypeError):
+                continue
         return bars
 
     def get_fundamentals(self, code: str) -> Fundamentals | None:
