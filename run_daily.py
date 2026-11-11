@@ -22,6 +22,7 @@ from report.generate_report import generate_report
 from report.notify import notify_windows
 from report.publish import publish_docs
 from tracking.benchmark import compute_missing_benchmarks, get_score_effect
+from tracking.bars_5m import save_5m_bars
 from tracking.exit_sim import get_exit_stats
 from tracking.payoff import get_payoff_stats
 from tracking.evaluate import evaluate_pending_predictions
@@ -199,6 +200,12 @@ def run(prediction_date: date) -> Path:
     except Exception as e:  # noqa: BLE001
         print(f"[volatile] テスト枠の作成に失敗しました: {e}")
         exp_buy, exp_sell = [], []
+
+    try:  # 5分足を毎日保存（あとで日中の値動きの順序を調べるため。取れなくても処理は続ける）
+        saved_path, saved_n = save_5m_bars(source, [code for code, _ in NIKKEI225], prediction_date)
+        print(f"[bars_5m] {saved_n}銘柄を保存しました: {saved_path}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[bars_5m] 5分足の保存に失敗しました: {e}")
 
     buy_stats = get_win_rate_stats(DB_PATH, side="buy")
     sell_stats = get_win_rate_stats(DB_PATH, side="sell")
