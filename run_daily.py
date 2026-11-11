@@ -22,6 +22,7 @@ from report.generate_report import generate_report
 from report.notify import notify_windows
 from report.publish import publish_docs
 from tracking.benchmark import compute_missing_benchmarks, get_score_effect
+from tracking.exit_sim import get_exit_stats
 from tracking.evaluate import evaluate_pending_predictions
 from tracking.refill import backfill_target_open, flag_anomalies, recompute_fills, repair_inconsistent_opens
 from tracking.market import index_daily_returns
@@ -226,6 +227,10 @@ def run(prediction_date: date) -> Path:
         exp_buy_effect=get_score_effect(DB_PATH, "buy", VOLATILE),
         exp_sell_effect=get_score_effect(DB_PATH, "sell", VOLATILE),
         forecast_set=fset,
+        buy_exit=get_exit_stats(DB_PATH, "buy"),
+        sell_exit=get_exit_stats(DB_PATH, "sell"),
+        exp_buy_exit=get_exit_stats(DB_PATH, "buy", VOLATILE),
+        exp_sell_exit=get_exit_stats(DB_PATH, "sell", VOLATILE),
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"

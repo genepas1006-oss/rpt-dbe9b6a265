@@ -23,6 +23,8 @@ from tracking.predictions_db import MarketOrderStats, WinRateStats
 from tracking.missed import MissedPrediction
 from tracking.previous import STATUS_LABEL, STATUS_ORDER, PreviousResults
 from tracking.benchmark import ScoreEffect
+from tracking.exit_sim import ExitStats
+from config import COST_RATE
 from tracking.unfilled import UnfilledPrediction
 
 
@@ -66,6 +68,24 @@ def _market_order_lines(stats: MarketOrderStats | None) -> list[str]:
     ]
     if stats.limit_avg_return is not None:
         lines.append(f"- 指値の平均リターン（同じ予測・約定分）: {stats.limit_avg_return * 100:+.2f}%")
+    return lines
+
+
+def _exit_lines(stats: list[ExitStats] | None, cost_rate: float = COST_RATE) -> list[str]:
+    """利確・損切りを使った場合の試算。日足からの計算なので、日中の値動きの順序は反映されない。"""
+    if not stats or all(s.count == 0 for s in stats):
+        return []
+    note = "試算・手数料込み" if cost_rate > 0 else "試算"
+    lines = []
+    for s in stats:
+        if s.count == 0 or s.avg_return is None:
+            continue
+        lines.append(
+            f"- 利確{s.take_profit * 100:g}%・損切り{s.stop_loss * 100:g}%の平均リターン（{note}）: "
+            f"{s.avg_return * 100:+.2f}%"
+            f"（的中 {s.win_rate * 100:.1f}%・約定{s.count}件・利確{s.tp_count}/損切り{s.sl_count}/"
+            f"終値{s.close_count}・判定不能{s.ambiguous_count}件）"
+        )
     return lines
 
 
@@ -187,6 +207,10 @@ def generate_report(
     exp_buy_effect: ScoreEffect | None = None,
     exp_sell_effect: ScoreEffect | None = None,
     forecast_set: ForecastSet | None = None,
+    buy_exit: list[ExitStats] | None = None,
+    sell_exit: list[ExitStats] | None = None,
+    exp_buy_exit: list[ExitStats] | None = None,
+    exp_sell_exit: list[ExitStats] | None = None,
 ) -> str:
     set_lines = to_md_lines(forecast_set) if forecast_set else []
     lines = [
@@ -201,11 +225,13 @@ def generate_report(
         *_stats_lines(buy_stats),
         *_score_effect_lines(buy_effect),
         *_market_order_lines(buy_market),
+        *_exit_lines(buy_exit),
         "",
         "## デモ検証成績（売り・現時点までの累計）",
         *_stats_lines(sell_stats),
         *_score_effect_lines(sell_effect),
         *_market_order_lines(sell_market),
+        *_exit_lines(sell_exit),
     ]
     lines += _previous_section("買い", buy_previous)
     lines += _previous_section("売り", sell_previous)
@@ -231,9 +257,18 @@ def generate_report(
 
     # テスト枠（値動き重視・試験運用）。本番の成績・仮想資金には含めない
     if exp_buy_candidates or exp_sell_candidates:
-        for label, stats, effect in (("買い", exp_buy_stats, exp_buy_effect), ("売り", exp_sell_stats, exp_sell_effect)):
+        for label, stats, effect, exits in (
+            ("買い", exp_buy_stats, exp_buy_effect, exp_buy_exit),
+            ("売り", exp_sell_stats, exp_sell_effect, exp_sell_exit),
+        ):
             if stats is not None:
-                lines += ["", f"## テスト枠の成績（{label}・値動き重視）", *_stats_lines(stats), *_score_effect_lines(effect)]
+                lines += [
+                    "",
+                    f"## テスト枠の成績（{label}・値動き重視）",
+                    *_stats_lines(stats),
+                    *_score_effect_lines(effect),
+                    *_exit_lines(exits),
+                ]
         lines += _candidate_section(
             f"## テスト枠の買い候補（{target_date.isoformat()}向け・値動き重視）",
             exp_buy_candidates or [],
