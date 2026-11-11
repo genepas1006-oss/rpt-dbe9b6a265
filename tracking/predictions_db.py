@@ -69,6 +69,10 @@ EXTRA_COLUMNS = {
     "data_anomaly": "INTEGER NOT NULL DEFAULT 0",  # 2026-11-10: 株式分割などの疑いで成績から除外する行
     "fundamental_json": "TEXT",  # 2026-11-10: 予測時のファンダメンタルの材料（外れた予想の分析用）
     "earnings_days": "INTEGER",  # 2026-11-10: 予測時点での次回決算までの日数
+    "slot": "TEXT",  # 2026-11-11: 予想セットの種別（evening=夜 / open=寄り枠 / lunch=昼）
+    "valid_from": "TEXT",  # 予想の有効期間の開始（日本時間・ISO形式）
+    "valid_until": "TEXT",  # 有効期間の終了（含まない）
+    "data_as_of": "TEXT",  # 予想に使ったデータの基準時刻
     "variant": "TEXT NOT NULL DEFAULT 'main'",  # 2026-11-10: 'main'=本番 / 'volatile'=テスト枠（値動き重視）
 }
 
@@ -122,8 +126,9 @@ def save_predictions(
     candidates: list[RankedCandidate],
     extras: dict[str, tuple[str | None, int | None]] | None = None,
     variant: str = MAIN,
+    forecast_set=None,
 ) -> None:
-    """variant: 'main'（本番）/ 'volatile'（テスト枠）。extras: 銘柄コード → (予測時のファンダメンタル材料のJSON, 次回決算までの日数)。外れた予想の分析用に記録する。"""
+    """forecast_set: 予想セット（種別・有効期間・データ基準を各予測に記録する）。variant: 'main'（本番）/ 'volatile'（テスト枠）。extras: 銘柄コード → (予測時のファンダメンタル材料のJSON, 次回決算までの日数)。外れた予想の分析用に記録する。"""
     extras = extras or {}
     conn = sqlite3.connect(db_path)
     try:
@@ -134,8 +139,8 @@ def save_predictions(
                 prediction_date, code, name, side, total_score, technical_score,
                 earnings_score, entry_price, reasons, target_date,
                 evaluated, created_at, pred_close, pred_daily_return, pred_volume_ratio,
-                fundamental_json, earnings_days, variant
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
+                fundamental_json, earnings_days, variant, slot, valid_from, valid_until, data_as_of
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -156,6 +161,10 @@ def save_predictions(
                     extras.get(c.code, (None, None))[0],
                     extras.get(c.code, (None, None))[1],
                     variant,
+                    forecast_set.slot if forecast_set else None,
+                    forecast_set.valid_from.isoformat() if forecast_set else None,
+                    forecast_set.valid_until.isoformat() if forecast_set else None,
+                    forecast_set.data_as_of.isoformat() if forecast_set else None,
                 )
                 for c in candidates
             ],
@@ -173,6 +182,7 @@ def replace_predictions(
     candidates: list[RankedCandidate],
     extras: dict[str, tuple[str | None, int | None]] | None = None,
     variant: str = MAIN,
+    forecast_set=None,
 ) -> None:
     """同じ予測日・同じside（・同じ区分）の予測を最新の1セットに置き換える（再実行しても二重登録しない）。
 
@@ -197,7 +207,7 @@ def replace_predictions(
     finally:
         conn.close()
     if candidates:
-        save_predictions(db_path, prediction_date, target_date, candidates, extras, variant)
+        save_predictions(db_path, prediction_date, target_date, candidates, extras, variant, forecast_set)
 
 
 @dataclass(frozen=True)

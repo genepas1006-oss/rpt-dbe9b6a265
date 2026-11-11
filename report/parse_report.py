@@ -9,6 +9,8 @@ docs/のHTML生成（report/build_site.py）専用のパーサー。generate_rep
 import re
 from dataclasses import dataclass, field
 
+from report.forecast_set import ForecastSet, from_md_body
+
 
 @dataclass(frozen=True)
 class ParsedCandidate:
@@ -81,6 +83,7 @@ class ParsedReport:
     exp_sell_stats_lines: list[str] = field(default_factory=list)
     exp_buy_candidates: list[ParsedCandidate] = field(default_factory=list)
     exp_sell_candidates: list[ParsedCandidate] = field(default_factory=list)
+    forecast_set: ForecastSet | None = None  # 予想セット（作成時刻・データ基準・有効期間）。古いレポートはNone
 
     @property
     def has_sell_section(self) -> bool:
@@ -209,8 +212,12 @@ def parse_report(text: str) -> ParsedReport:
     exp_sell_stats: list[str] = []
     exp_buy_candidates: list[ParsedCandidate] = []
     exp_sell_candidates: list[ParsedCandidate] = []
+    forecast_set: ForecastSet | None = None
 
     for heading, body in sections:
+        if heading.startswith("予想セット"):
+            forecast_set = from_md_body(body)
+            continue
         if heading.startswith("テスト枠の成績（買い"):
             exp_buy_stats = _parse_stats_lines(body)
             continue
@@ -265,4 +272,5 @@ def parse_report(text: str) -> ParsedReport:
         exp_sell_stats_lines=exp_sell_stats,
         exp_buy_candidates=exp_buy_candidates,
         exp_sell_candidates=exp_sell_candidates,
+        forecast_set=forecast_set,
     )

@@ -7,6 +7,7 @@ from pathlib import Path
 from analysis.earnings import compute_earnings_score, compute_short_earnings_score
 from analysis.scoring import CandidateInput, rank_candidates
 from analysis.technical import compute_short_technical_score, compute_technical_score
+from analysis.market_calendar import next_business_day  # noqa: F401  (run_daily.next_business_day として参照される)
 from analysis.consistency import resolve_direction_conflicts
 from analysis.fundamental_comment import build_snapshot
 from analysis.volatile_pool import select_volatile_pool
@@ -15,6 +16,7 @@ from analysis.market_gaps import market_overnight_gaps, save_market_gaps
 from config import NIKKEI225
 from data_sources.yfinance_source import YFinanceSource
 from report.build_site import build_index
+from report.forecast_set import JST, evening_set
 from tracking.virtual_fund import get_default_virtual_fund
 from report.generate_report import generate_report
 from report.notify import notify_windows
@@ -57,14 +59,6 @@ def next_earnings_days(earnings_dates: list[date], today: date) -> int | None:
     """次回の決算発表日まで（暦日）の日数。今日以降の発表日がなければNone。"""
     upcoming = [d for d in earnings_dates if d >= today]
     return (min(upcoming) - today).days if upcoming else None
-
-
-def next_business_day(d: date) -> date:
-    """土日をスキップした翌営業日を返す（日本の祝日は考慮していない・既知の簡略化）。"""
-    next_day = d + timedelta(days=1)
-    while next_day.weekday() >= 5:  # 5=土, 6=日
-        next_day += timedelta(days=1)
-    return next_day
 
 
 def run(prediction_date: date) -> Path:
@@ -182,8 +176,10 @@ def run(prediction_date: date) -> Path:
         snapshot = snapshot_to_json(build_snapshot(f, c.day_close)) if f is not None else None
         extras[c.code] = (snapshot, earnings_days.get(c.code))
 
-    replace_predictions(DB_PATH, prediction_date, target_date, "buy", ranked_buy, extras)
-    replace_predictions(DB_PATH, prediction_date, target_date, "sell", ranked_sell, extras)
+    # 予想セット（作成時刻・データ基準・有効期間）。夜の予想は、翌営業日の前場（9:00〜11:30）向け
+    fset = evening_set(prediction_date, target_date, datetime.now(JST))
+    replace_predictions(DB_PATH, prediction_date, target_date, "buy", ranked_buy, extras, forecast_set=fset)
+    replace_predictions(DB_PATH, prediction_date, target_date, "sell", ranked_sell, extras, forecast_set=fset)
 
     # テスト枠（値動き重視・試験運用）: 当日値幅率の上位30%から選ぶ。本番とは別の区分で記録する。失敗しても続ける
     exp_buy, exp_sell = [], []
@@ -191,8 +187,8 @@ def run(prediction_date: date) -> Path:
         pool_codes = {c.code for c in select_volatile_pool(buy_candidates)}
         exp_buy = rank_candidates([c for c in consistent_buy if c.code in pool_codes], side="buy")
         exp_sell = rank_candidates([c for c in consistent_sell if c.code in pool_codes], side="sell")
-        replace_predictions(DB_PATH, prediction_date, target_date, "buy", exp_buy, variant=VOLATILE)
-        replace_predictions(DB_PATH, prediction_date, target_date, "sell", exp_sell, variant=VOLATILE)
+        replace_predictions(DB_PATH, prediction_date, target_date, "buy", exp_buy, variant=VOLATILE, forecast_set=fset)
+        replace_predictions(DB_PATH, prediction_date, target_date, "sell", exp_sell, variant=VOLATILE, forecast_set=fset)
     except Exception as e:  # noqa: BLE001
         print(f"[volatile] テスト枠の作成に失敗しました: {e}")
         exp_buy, exp_sell = [], []
@@ -224,6 +220,7 @@ def run(prediction_date: date) -> Path:
         exp_sell_stats=get_win_rate_stats(DB_PATH, side="sell", variant=VOLATILE),
         exp_buy_effect=get_score_effect(DB_PATH, "buy", VOLATILE),
         exp_sell_effect=get_score_effect(DB_PATH, "sell", VOLATILE),
+        forecast_set=fset,
     )
 
     report_path = REPORTS_DIR / f"{prediction_date.isoformat()}.md"

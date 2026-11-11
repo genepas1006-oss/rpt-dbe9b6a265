@@ -16,6 +16,7 @@ GitHub Pagesで公開することを想定し、外部サービス・ログイ�
 """
 
 import html
+import json
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -24,6 +25,8 @@ from datetime import date
 
 from html import unescape as html_module_unescape
 
+from analysis.market_calendar import next_business_day
+from report.forecast_set import ForecastSet, evening_set, fmt_md_hm, to_json_dict
 from report.glossary import terms_in
 from report.md_to_html import color_deltas
 from report.premarket import Premarket, load_premarket
@@ -40,6 +43,82 @@ from report.parse_report import (
 
 PAGE_TITLE = "日本株デイクローズ・リサーチ"
 
+_FSET_SCRIPT = r"""
+(function () {
+  var el = document.getElementById('fsets');
+  if (!el) return;
+  var sets = [];
+  try { sets = JSON.parse(el.textContent); } catch (e) { return; }
+  var byId = {};
+  sets.forEach(function (s) { byId[s.id] = s; });
+  var tHM = new Intl.DateTimeFormat('ja-JP', {timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false});
+  var tD = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit'});
+  var tW = new Intl.DateTimeFormat('en-US', {timeZone: 'Asia/Tokyo', weekday: 'short'});
+  var tMD = new Intl.DateTimeFormat('ja-JP', {timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric'});
+  function hm(ms) { return tHM.format(new Date(ms)); }
+  function md(ms) { return tMD.format(new Date(ms)); }
+  function dur(ms) { var m = Math.max(1, Math.ceil(ms / 60000)); if (m < 60) return m + '分'; var h = Math.floor(m / 60); return h + '時間' + (m % 60 ? (m % 60) + '分' : ''); }
+  function state(s, now) {
+    var f = Date.parse(s.valid_from), u = Date.parse(s.valid_until);
+    if (now < f) return {k: 'waiting', ms: f - now, from: f, until: u};
+    if (now < u) return {k: 'active', ms: u - now, from: f, until: u};
+    return {k: 'expired', ms: 0, from: f, until: u};
+  }
+  function update() {
+    var now = Date.now();
+    var last = {};
+    document.querySelectorAll('.fset').forEach(function (h) {
+      var s = byId[h.getAttribute('data-id')];
+      if (!s) return;
+      var r = state(s, now);
+      var badge = h.querySelector('.fset-state');
+      badge.textContent = r.k === 'active' ? '🟢 有効（あと' + dur(r.ms) + '）'
+        : r.k === 'waiting' ? '🟡 待機（' + md(r.from) + ' ' + hm(r.from) + 'から・あと' + dur(r.ms) + '）' : '⚪ 期限切れ';
+      h.classList.remove('is-active', 'is-waiting', 'is-expired');
+      h.classList.add('is-' + r.k);
+      last[s.id] = r.k;
+    });
+    document.querySelectorAll('.fset-body').forEach(function (d) {
+      var k = last[d.getAttribute('data-id')];
+      if (!k) return;
+      d.classList.toggle('is-expired', k === 'expired');
+      if (d.getAttribute('data-k') !== k) { d.open = (k !== 'expired'); d.setAttribute('data-k', k); }
+    });
+    var banner = document.getElementById('now-banner'), text = document.getElementById('nb-text');
+    if (!banner || !text) return;
+    var active = sets.filter(function (s) { return state(s, now).k === 'active'; })
+      .sort(function (a, b) { return (b.created_at || b.valid_from) < (a.created_at || a.valid_from) ? -1 : 1; })[0];
+    var waiting = sets.filter(function (s) { return state(s, now).k === 'waiting'; })
+      .sort(function (a, b) { return Date.parse(a.valid_from) - Date.parse(b.valid_from); })[0];
+    var clock = '<span class="nb-clock">現在 ' + hm(now) + '（日本時間）</span> ／ ';
+    var msg, cls;
+    if (active) {
+      var ra = state(active, now);
+      msg = clock + '<b>' + active.label + '</b>が有効です（' + hm(ra.until) + 'まで・あと' + dur(ra.ms) + '）。' + active.note;
+      cls = 'is-active';
+    } else if (waiting) {
+      var rw = state(waiting, now);
+      msg = clock + '<b>' + waiting.label + '</b>は ' + md(rw.from) + ' ' + hm(rw.from) + ' から有効です（あと' + dur(rw.ms) + '）。それまでは、この予想で売買しないでください。';
+      cls = 'is-waiting';
+    } else {
+      msg = clock + '<b>現在、有効な予想はありません。</b>下の予想は期限切れです（前日夜の予想は前場向けで、後場の売買には使えません）。'
+        + '後場向けの予想は、現時点では出していません。次の更新で新しい予想が出ます（目安: 平日16:10）。';
+      cls = 'is-none';
+    }
+    var today = tD.format(new Date(now)), wd = tW.format(new Date(now));
+    var latestTarget = sets.reduce(function (m, s) { return s.target_date > m ? s.target_date : m; }, '');
+    var minutes = parseInt(hm(now).slice(0, 2), 10) * 60 + parseInt(hm(now).slice(3, 5), 10);
+    if (wd !== 'Sat' && wd !== 'Sun' && minutes >= 540 && minutes < 930 && latestTarget && latestTarget < today) {
+      msg += '<span class="nb-alert">本日（' + today + '）向けの予想がまだ反映されていません。表示中の予想は古い情報です（休場日の場合は、この表示は無視してください）。</span>';
+    }
+    banner.className = 'now-banner ' + cls;
+    text.innerHTML = msg;
+  }
+  update();
+  setInterval(update, 30000);
+})();
+"""
+
 _STYLE = """
 :root {
   --bg: #f4f3ef; --surface: #ffffff; --surface-2: #f2f1ed;
@@ -49,6 +128,7 @@ _STYLE = """
   --up: #c0392b; --down: #1e8449;
   --buy: #d4483b; --buy-bg: #fdecea; --buy-text: #a93226;
   --sell: #239a5b; --sell-bg: #e6f4ec; --sell-text: #1b6b40;
+  --ok: #1b7a46; --ok-bg: #e3f3ea; --wait: #8a5a00; --wait-bg: #fff2d6; --stale: #6b6e76; --stale-bg: #ecebe6; --alert: #a4262c; --alert-bg: #fde8e8;
   --shadow: 0 1px 2px rgba(20,24,40,.06), 0 4px 14px rgba(20,24,40,.05);
 }
 @media (prefers-color-scheme: dark) {
@@ -60,6 +140,7 @@ _STYLE = """
     --up: #ff7b72; --down: #56d364;
     --buy: #ff6b5e; --buy-bg: #3a1f1c; --buy-text: #ff9e95;
     --sell: #3fcf7f; --sell-bg: #16301f; --sell-text: #7ee2a0;
+    --ok: #6fd69a; --ok-bg: #12301f; --wait: #f2c26b; --wait-bg: #3a2c0e; --stale: #9a9ea8; --stale-bg: #262a31; --alert: #ff9b9b; --alert-bg: #3b1a1c;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
   }
 }
@@ -244,6 +325,25 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .fund-days td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .fund-days th:first-child, .fund-days td:first-child { text-align: left; }
 .prev-row .pn small.pn-note { display: block; margin-top: 2px; color: var(--text-muted); font-style: italic; }
+.now-banner { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); font-size: 0.88rem; line-height: 1.6; }
+.now-banner .nb-clock { font-weight: 800; color: var(--ink); }
+.now-banner.is-active { border-left: 5px solid var(--ok); background: var(--ok-bg); }
+.now-banner.is-waiting { border-left: 5px solid var(--wait); background: var(--wait-bg); }
+.now-banner.is-none { border-left: 5px solid var(--stale); background: var(--stale-bg); }
+.now-banner .nb-alert { display: block; margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: var(--alert-bg); color: var(--alert); font-weight: 700; }
+.fset { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); border-left: 5px solid var(--stale); background: var(--surface); }
+.fset.is-active { border-left-color: var(--ok); } .fset.is-waiting { border-left-color: var(--wait); } .fset.is-expired { border-left-color: var(--stale); background: var(--stale-bg); }
+.fset-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fset-label { font-size: 1rem; color: var(--ink); }
+.fset-state { font-size: 0.78rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: var(--stale-bg); color: var(--stale); }
+.fset.is-active .fset-state { background: var(--ok-bg); color: var(--ok); } .fset.is-waiting .fset-state { background: var(--wait-bg); color: var(--wait); }
+.fset.is-expired .fset-state { background: var(--stale); color: var(--surface); }
+.fset-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 0.74rem; color: var(--text-muted); }
+.fset-note { margin: 6px 0 0; font-size: 0.8rem; color: var(--text); font-weight: 700; }
+.fset.is-expired .fset-note { color: var(--alert); }
+.fset-body > summary { cursor: pointer; font-size: 0.78rem; color: var(--text-muted); padding: 4px 2px 8px; }
+.fset-body.is-expired .sides, .fset-body.is-expired .experiment { opacity: 0.55; }
+.fset-body.is-expired .card-price, .fset-body.is-expired .stock-link { text-decoration: line-through; }
 .experiment { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 14px; margin: 14px 0; padding: 0 14px; }
 .experiment > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; font-weight: 800; font-size: 0.95rem; color: var(--ink); }
 .experiment > summary::-webkit-details-marker { display: none; }
@@ -734,7 +834,7 @@ def _experiment_block(parsed: ParsedReport) -> str:
     )
 
 
-def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
+def _render_report(parsed: ParsedReport, latest: bool = False, fset: ForecastSet | None = None, set_id: str = "") -> str:
     sections = _side_section(
         "買い候補", "buy", parsed.buy_stats_lines, parsed.buy_candidates, parsed.buy_unfilled, latest, parsed.buy_missed,
         parsed.buy_previous,
@@ -750,7 +850,16 @@ def _render_report(parsed: ParsedReport, latest: bool = False) -> str:
                 '<nav class="seg-nav"><a class="buy" href="#side-buy">買い候補</a>'
                 '<a class="sell" href="#side-sell">売り候補</a></nav>'
             )
-    return f'{nav}<div class="sides">{sections}</div>{_experiment_block(parsed)}'
+    inner = f'<div class="sides">{sections}</div>{_experiment_block(parsed)}'
+    if fset is None:
+        return f"{nav}{inner}"
+    header = _fset_header(fset, set_id)
+    if latest:  # 最新の予想セットは、期限切れになったら自動で折りたたむ（画面側のスクリプトで開閉）
+        return (
+            f'{nav}{header}<details class="fset-body" data-id="{html.escape(set_id)}" open>'
+            f'<summary>候補一覧（期限切れのときは折りたたまれます。タップで開閉）</summary>{inner}</details>'
+        )
+    return f"{header}{inner}"
 
 
 def _month_label(year_month: str) -> str:
@@ -795,6 +904,42 @@ def _glossary_block(*html_parts: str) -> str:
     )
 
 
+def _fset_header(fs: ForecastSet, set_id: str) -> str:
+    created = fmt_md_hm(fs.created_at) if fs.created_at else "不明（古い形式のため）"
+    window = f"{fs.valid_from.month}/{fs.valid_from.day} {fs.valid_from:%H:%M}〜{fs.valid_until:%H:%M}"
+    return (
+        f'<div class="fset" data-id="{html.escape(set_id)}">'
+        f'<div class="fset-top"><span class="fset-state">判定中…</span><b class="fset-label">{html.escape(fs.label)}</b></div>'
+        f'<div class="fset-meta"><span>作成 {html.escape(created)}</span>'
+        f"<span>データ基準 {html.escape(fmt_md_hm(fs.data_as_of))}（{html.escape(fs.data_note)}）</span>"
+        f"<span>使える時間 {html.escape(window)}</span></div>"
+        f'<p class="fset-note">{html.escape(fs.note)}</p></div>'
+    )
+
+
+def _banner_html() -> str:
+    return (
+        '<div id="now-banner" class="now-banner is-none" role="status" aria-live="polite">'
+        '<span id="nb-text">予想の有効時間を判定中…</span>'
+        "<noscript>時刻による「有効・期限切れ」の判定には JavaScript が必要です。"
+        "各予想の「作成」「データ基準」「使える時間」を必ずご確認ください。</noscript></div>"
+    )
+
+
+def _fsets_json(sets: list[tuple[str, ForecastSet]]) -> str:
+    data = json.dumps([to_json_dict(fs, sid) for sid, fs in sets], ensure_ascii=False)
+    return f'<script type="application/json" id="fsets">{data.replace("</", "<\\/")}</script>'
+
+
+def _derive_set(stem: str) -> ForecastSet | None:
+    """予想セットの記載がない古いレポートは、ファイル名の日付から夜の予想として復元する（作成時刻は不明）。"""
+    try:
+        d = date.fromisoformat(stem)
+    except ValueError:
+        return None
+    return evening_set(d, next_business_day(d), None)
+
+
 def _is_premarket_empty(parsed: ParsedReport) -> bool:
     if parsed.buy_candidates or parsed.sell_candidates:
         return False
@@ -829,10 +974,15 @@ def build_index(
             latest_date = None
     env_html = _environment_block(premarket, latest_date, market_gaps)
     history_by_month: dict[str, list[str]] = defaultdict(list)
+    page_sets: list[tuple[str, ForecastSet]] = []
 
     for i, path in enumerate(report_files):
         parsed = parsed_by_path[path]
-        body = _render_report(parsed, latest=(i == 0))
+        fset = parsed.forecast_set or _derive_set(path.stem)
+        set_id = f"{path.stem}-{fset.slot}" if fset else ""
+        body = _render_report(parsed, latest=(i == 0), fset=fset, set_id=set_id)
+        if i == 0 and fset:
+            page_sets.append((set_id, fset))
         if i == 0:
             latest_html = f'<div class="report latest">{body}</div>'
         else:
@@ -879,12 +1029,17 @@ def build_index(
 <div class="meta">{latest_pill}<span class="pill">最終更新<b>{html.escape(generated_at)}</b></span></div>
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
 </header>
+{_banner_html()}
 {_fund_block(fund)}
 {env_html}
 {latest_html}
 {_glossary_block(_fund_block(fund), env_html, latest_html)}
 <div class="history-head"><h2 class="section-title">過去のレポート</h2><span class="count">{history_count}日分</span></div>
 {history_section}
+{_fsets_json(page_sets)}
+<script>
+{_FSET_SCRIPT}
+</script>
 <script>
 (function () {{
   var tabs = document.querySelectorAll('.month-tabs a');

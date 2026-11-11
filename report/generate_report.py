@@ -12,6 +12,7 @@ from datetime import date
 
 from analysis.scoring import RankedCandidate
 from data_sources.base import Fundamentals
+from report.forecast_set import ForecastSet, to_md_lines
 from report.one_point_summary import (
     build_one_point_summary,
     build_one_point_with_fundamentals,
@@ -185,7 +186,9 @@ def generate_report(
     exp_sell_stats: WinRateStats | None = None,
     exp_buy_effect: ScoreEffect | None = None,
     exp_sell_effect: ScoreEffect | None = None,
+    forecast_set: ForecastSet | None = None,
 ) -> str:
+    set_lines = to_md_lines(forecast_set) if forecast_set else []
     lines = [
         f"# 日本株デイクローズ・リサーチレポート {prediction_date.isoformat()}",
         "",
@@ -193,6 +196,7 @@ def generate_report(
         "翌日の値動きや勝率を保証するものではありません。実発注は行っていません"
         "（デモ検証フェーズ）。**",
         "",
+        *set_lines,
         "## デモ検証成績（買い・現時点までの累計）",
         *_stats_lines(buy_stats),
         *_score_effect_lines(buy_effect),
