@@ -175,7 +175,7 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
              border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .seg-nav a.buy { color: var(--buy-text); } .seg-nav a.sell { color: var(--sell-text); }
 .sides { display: grid; gap: 22px; }
-.side { scroll-margin-top: 64px; }
+.side { min-width: 0; scroll-margin-top: 64px; }
 .side-head { display: flex; align-items: center; gap: 10px; margin: 6px 2px 12px; }
 .side-title { font-size: 1.15rem; font-weight: 800; margin: 0; }
 .side.buy .side-title { color: var(--buy-text); } .side.sell .side-title { color: var(--sell-text); }
@@ -382,9 +382,9 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .glossary dd { margin: 2px 0 0; font-size: 0.8rem; line-height: 1.6; color: var(--text-muted); }
 .fund-note { margin: 8px 0 0; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
 @media (min-width: 860px) {
-  .exp-sides { grid-template-columns: 1fr 1fr; align-items: start; }
+  .exp-sides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   /* 買い/売りの各ブロック（見出し・前営業日・成績・履歴・候補）を同じ行に揃える */
-  .sides { grid-template-columns: 1fr 1fr; gap: 0 22px; }
+  .sides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 22px; }
   /* 上5ブロック＋候補カード5行 = 10行。カードも順位ごとに左右で同じ高さにする */
   .sides > .side.paired { display: grid; grid-row: span 10; grid-template-rows: subgrid; row-gap: 0; }
   .side.paired > .slot.cards { grid-row: span 5; display: grid; grid-template-rows: subgrid; row-gap: 10px; }
