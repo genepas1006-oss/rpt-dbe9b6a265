@@ -24,6 +24,11 @@ from tracking.missed import MissedPrediction
 from tracking.previous import STATUS_LABEL, STATUS_ORDER, PreviousResults
 from tracking.benchmark import ScoreEffect
 from tracking.exit_sim import ExitStats
+from tracking.payoff import PayoffStats, excursions
+from analysis.card_explain import (
+    MAX_SCORE, close_position, reason_sentence, relative_strength_text, round_level_text, score_rows,
+)
+from analysis.fundamental_comment import build_fundamental_outlook, build_fundamental_sentence, earnings_notice
 from config import COST_RATE
 from tracking.unfilled import UnfilledPrediction
 
@@ -69,6 +74,26 @@ def _market_order_lines(stats: MarketOrderStats | None) -> list[str]:
     if stats.limit_avg_return is not None:
         lines.append(f"- 指値の平均リターン（同じ予測・約定分）: {stats.limit_avg_return * 100:+.2f}%")
     return lines
+
+
+def _payoff_lines(stats: PayoffStats | None) -> list[str]:
+    """勝ったときの平均利益・負けたときの平均損失・損益比。平均値の差だけでは分からない勝ち負けの形を示す。"""
+    if stats is None:
+        return []
+    win = "なし" if stats.avg_win is None else f"{stats.avg_win * 100:+.2f}%"
+    if stats.avg_loss is None:
+        loss = "なし"
+    elif stats.avg_loss == 0:
+        loss = "0.00%"
+    else:
+        loss = f"-{stats.avg_loss * 100:.2f}%"
+    ratio = "算出不可" if stats.payoff_ratio is None else f"{stats.payoff_ratio:.2f}"
+    return [
+        f"- 平均利益（勝った場合のリターン）: {win}（{stats.wins}件）",
+        f"- 平均損失（負けた場合のリターン）: {loss}（{stats.losses}件）",
+        f"- 損益比（平均利益÷平均損失）: {ratio}",
+        f"- 1件あたりの平均リターン: {stats.avg_return * 100:+.2f}%",
+    ]
 
 
 def _exit_lines(stats: list[ExitStats] | None, cost_rate: float = COST_RATE) -> list[str]:
@@ -117,6 +142,7 @@ def _previous_section(side_label: str, prev: PreviousResults | None) -> list[str
             f"- {i.rank}位 | {i.name}（{i.code}） | {STATUS_LABEL[i.status]} | "
             f"{entry} | {ret} | {move} | {oc}" + (f" | {i.note}" if i.note else "")
         )
+        lines += [f"  - {t}" for t in i.explain_lines()]
     return lines
 
 
@@ -151,36 +177,44 @@ def _candidate_section(
     empty_message: str,
     fundamentals: dict[str, Fundamentals] | None = None,
     earnings_days: dict[str, int | None] | None = None,
+    index_return: float | None = None,
 ) -> list[str]:
     lines = ["", heading, ""]
     if not candidates:
         lines.append(empty_message)
     else:
         for rank, c in enumerate(candidates, start=1):
+            pos = close_position(c.day_high, c.day_low, c.day_close)
+            rows = score_rows(c.side, c.volume_ratio, c.daily_return, pos, c.earnings_score)
             lines.append(f"### {rank}位 {c.name}（{c.code}） - スコア{c.total_score}点")
             lines.append(
                 f"- 内訳: 値動き・出来高{c.technical_score}点 / 決算パターン{c.earnings_score}点"
             )
+            lines += [f"- 採点: {r.to_md()}" for r in rows]
             lines.append(f"- 参考指値: {c.entry_price:,.1f}円")
             if c.reasons:
                 lines.append(f"- 根拠: {' / '.join(c.reasons)}")
             lines.append(
                 f"- 当日の値動き: 始値{c.day_open:,.1f}円 / 高値{c.day_high:,.1f}円 / "
                 f"安値{c.day_low:,.1f}円 / 終値{c.day_close:,.1f}円 / "
-                f"出来高{c.day_volume:,.0f}株"
+                f"出来高{c.day_volume:,.0f}株 / 引け位置{pos:.2f}（値幅の下から{pos * 100:.0f}%）"
             )
-            summary = build_one_point_summary(
-                c.day_open, c.day_high, c.day_low, c.day_close, c.volume_ratio
-            )
+            reason = reason_sentence(c.side, rows)
+            if reason:
+                lines.append(f"- 候補の理由: {reason}")
             f = (fundamentals or {}).get(c.code)
-            summary = build_one_point_with_fundamentals(
-                c.day_high, c.day_low, c.day_close, c.volume_ratio, c.daily_return, f, summary
-            )
-            outlook = build_outlook_with_fundamentals(
-                c.side, c.day_high, c.day_low, c.day_close, c.volume_ratio, f, (earnings_days or {}).get(c.code)
-            )
-            lines.append(f"- ワンポイント: {summary}")
-            lines.append(f"- 明日の見通し: {outlook}")
+            watch = [
+                relative_strength_text(c.daily_return, index_return),
+                round_level_text(c.day_close),
+                earnings_notice((earnings_days or {}).get(c.code)),
+            ]
+            lines += [f"- 気をつける点: {w}" for w in watch if w]
+            if f is not None:
+                ref = (build_fundamental_sentence(f, c.day_close) or "") + (
+                    build_fundamental_outlook(f, c.day_close, c.side) or ""
+                )
+                if ref:
+                    lines.append(f"- 参考（業績・割安度）: {ref}")
             lines.append("")
     return lines
 
@@ -215,6 +249,9 @@ def generate_report(
     sell_exit: list[ExitStats] | None = None,
     exp_buy_exit: list[ExitStats] | None = None,
     exp_sell_exit: list[ExitStats] | None = None,
+    buy_payoff: PayoffStats | None = None,
+    sell_payoff: PayoffStats | None = None,
+    index_return: float | None = None,
 ) -> str:
     set_lines = to_md_lines(forecast_set) if forecast_set else []
     lines = [
@@ -227,12 +264,14 @@ def generate_report(
         *set_lines,
         "## デモ検証成績（買い・現時点までの累計）",
         *_stats_lines(buy_stats),
+        *_payoff_lines(buy_payoff),
         *_score_effect_lines(buy_effect),
         *_market_order_lines(buy_market),
         *_exit_lines(buy_exit),
         "",
         "## デモ検証成績（売り・現時点までの累計）",
         *_stats_lines(sell_stats),
+        *_payoff_lines(sell_payoff),
         *_score_effect_lines(sell_effect),
         *_market_order_lines(sell_market),
         *_exit_lines(sell_exit),
@@ -250,6 +289,7 @@ def generate_report(
         "本日は基準（スコア>0）を満たす買い候補がありませんでした。",
         fundamentals,
         earnings_days,
+        index_return=index_return,
     )
     lines += _candidate_section(
         f"## 本日の売り候補（{target_date.isoformat()}向け・参考指値）",
@@ -257,6 +297,7 @@ def generate_report(
         "本日は基準（スコア>0）を満たす売り候補がありませんでした。",
         fundamentals,
         earnings_days,
+        index_return=index_return,
     )
 
     # テスト枠（値動き重視・試験運用）。本番の成績・仮想資金には含めない
@@ -277,11 +318,13 @@ def generate_report(
             f"## テスト枠の買い候補（{target_date.isoformat()}向け・値動き重視）",
             exp_buy_candidates or [],
             "テスト枠に該当する買い候補がありませんでした。",
+            index_return=index_return,
         )
         lines += _candidate_section(
             f"## テスト枠の売り候補（{target_date.isoformat()}向け・値動き重視）",
             exp_sell_candidates or [],
             "テスト枠に該当する売り候補がありませんでした。",
+            index_return=index_return,
         )
 
     return "\n".join(lines)

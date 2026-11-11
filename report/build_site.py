@@ -283,6 +283,25 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .card-detail .one-point-label { font-weight: bold; margin-right: 4px; }
 .card-detail .outlook { margin: 10px 0 0; padding: 9px 12px; border-left: 4px solid var(--up); background: var(--surface-2); border-radius: 6px; }
 .card-detail .outlook.sell { border-left-color: var(--down); }
+.score-table { width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 0.8rem; }
+.score-table caption { text-align: left; font-weight: 800; font-size: 0.78rem; margin-bottom: 4px; }
+.score-table th, .score-table td { padding: 5px 6px; border-top: 1px solid var(--border); text-align: left; vertical-align: top; }
+.score-table th { white-space: nowrap; font-weight: 700; }
+.score-table .rule { color: var(--text-muted); font-size: 0.72rem; }
+.score-table .pt { text-align: right; white-space: nowrap; font-weight: 800; color: var(--text-muted); }
+.score-table tr.on .pt { color: var(--ink); }
+.card-detail .reason { margin: 0 0 8px; }
+.card-detail .watch { margin: 0 0 8px; padding: 8px 12px; border-left: 4px solid var(--idle); background: var(--surface-2); border-radius: 6px; }
+.card-detail .watch ul { margin: 4px 0 0; padding-left: 18px; }
+.card-detail .ref { margin: 8px 0 0; font-size: 0.78rem; color: var(--text-muted); }
+.card-detail .ref p { margin: 4px 0 0; }
+.prev-row .prev-why { grid-column: 1 / -1; font-size: 0.75rem; color: var(--text-muted); }
+.prev-row .prev-why summary { cursor: pointer; }
+.prev-row .prev-why ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.55; }
+.howto { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; margin: 0 0 14px; font-size: 0.85rem; }
+.howto summary { cursor: pointer; font-weight: 800; }
+.howto h3 { font-size: 0.85rem; margin: 10px 0 2px; }
+.howto p, .howto ul { margin: 2px 0; line-height: 1.6; }
 .card-detail .outlook-label { display: block; font-weight: bold; font-size: .82em; margin-bottom: 2px; }
 .empty-msg { color: var(--text-muted); font-size: 0.9rem; padding: 14px; background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; }
 .history-head { display: flex; align-items: baseline; justify-content: space-between; margin: 34px 4px 10px; }
@@ -425,7 +444,7 @@ def _stat_row(lines: list[str]) -> str:
         sub_html = f'<span class="sub">{html.escape(sub)}</span>' if sub else ""
         # リターン（損益）の符号は、値上がり=赤・値下がり=緑の配色と紛らわしいので色を付けない
         escaped = html.escape(main.strip())
-        value_html = escaped if ("リターン" in cap or "全銘柄平均" in cap) else color_deltas(escaped)
+        value_html = escaped if ("リターン" in cap or "全銘柄平均" in cap or "損益比" in cap) else color_deltas(escaped)
         tile = (
             f'<div class="stat-tile{feature}"><span class="cap">{html.escape(cap)}</span>'
             f'<span class="val">{value_html}{sub_html}</span>{bar}</div>'
@@ -514,6 +533,20 @@ def _fund_block(fund: VirtualFund | None) -> str:
     )
 
 
+def _score_table(rows: list[str]) -> str:
+    body = ""
+    for r in rows:
+        parts = [p.strip() for p in r.split(" | ")]
+        if len(parts) != 4:
+            continue
+        label, actual, rule, pts = (html.escape(x) for x in parts)
+        cls = "" if pts in ("+0点", "0点") else ' class="on"'
+        body += f"<tr{cls}><th>{label}</th><td>{actual}</td><td class=\"rule\">{rule}</td><td class=\"pt\">{pts}</td></tr>"
+    if not body:
+        return ""
+    return f'<table class="score-table"><caption>スコアの内訳（値動き・出来高5点＋決算2点＝7点満点）</caption>{body}</table>'
+
+
 def _candidate_card(c: ParsedCandidate, side: str) -> str:
     rank1_class = f" rank1 {side}" if c.rank == 1 else ""
     side_label = "買い" if side == "buy" else "売り"
@@ -526,35 +559,37 @@ def _candidate_card(c: ParsedCandidate, side: str) -> str:
 
     detail_html = ""
     expand_hint_html = ""
-    if c.day_summary or c.one_point or c.outlook:
-        day_summary_html = (
-            f'<p class="day-summary">{color_deltas(html.escape(c.day_summary))}</p>'
-            if c.day_summary
-            else ""
-        )
-        one_point_html = (
-            f'<p class="one-point"><span class="one-point-label">ワンポイント:</span>'
-            f"{html.escape(c.one_point)}</p>"
-            if c.one_point
-            else ""
-        )
-        outlook_html = (
-            f'<p class="outlook {side}"><span class="outlook-label">明日の見通し</span>'
-            f"{html.escape(c.outlook)}</p>"
-            if c.outlook
-            else ""
-        )
-        detail_html = (
-            f'<div class="card-detail">{day_summary_html}{one_point_html}{outlook_html}</div>'
-        )
-        expand_hint_html = '<p class="card-expand-hint">タップで当日の値動きを見る</p>'
+    if c.day_summary or c.one_point or c.outlook or c.scoring_rows or c.watch_points:
+        parts = [_score_table(c.scoring_rows)]
+        if c.day_summary:
+            parts.append(f'<p class="day-summary">{color_deltas(html.escape(c.day_summary))}</p>')
+        if c.reason:
+            parts.append(f'<p class="reason">{html.escape(c.reason)}</p>')
+        if c.watch_points:
+            items = "".join(f"<li>{html.escape(w)}</li>" for w in c.watch_points)
+            parts.append(f'<div class="watch"><b>気をつける点</b><ul>{items}</ul></div>')
+        if c.reference:
+            parts.append(
+                f'<details class="ref"><summary>参考: 業績・割安度</summary><p>{html.escape(c.reference)}</p></details>'
+            )
+        # 旧フォーマットのレポート（過去分）
+        if c.one_point:
+            parts.append(
+                f'<p class="one-point"><span class="one-point-label">ワンポイント:</span>{html.escape(c.one_point)}</p>'
+            )
+        if c.outlook:
+            parts.append(
+                f'<p class="outlook {side}"><span class="outlook-label">明日の見通し</span>{html.escape(c.outlook)}</p>'
+            )
+        detail_html = f'<div class="card-detail">{"".join(p for p in parts if p)}</div>'
+        expand_hint_html = '<p class="card-expand-hint">タップでスコアの内訳と気をつける点を見る</p>'
 
     return f"""<details class="card{rank1_class}">
 <summary>
 <div class="card-head">
 <span class="rank-badge">{c.rank}</span>
 <span class="card-name">{_stock_link(f"{c.name}（{c.code}）", c.code)}</span>
-<span class="side-badge {side}">{side_label}・スコア{c.score}</span>
+<span class="side-badge {side}">{side_label}・スコア{c.score}/7点</span>
 </div>
 <p class="card-price">{html.escape(c.entry_price)}</p>
 {reasons_html}
@@ -773,6 +808,13 @@ def _count_chip(text: str) -> str:
     return f'<span class="st {_status_class(label)}">{html.escape((label + " " + n).strip())}</span>'
 
 
+def _prev_detail(detail: list[str]) -> str:
+    if not detail:
+        return ""
+    items = "".join(f"<li>{html.escape(d)}</li>" for d in detail)
+    return f'<details class="prev-why"><summary>結果の内訳（約定・損益・補足）</summary><ul>{items}</ul></details>'
+
+
 def _previous_block(prev: ParsedPrevious | None) -> str:
     """前営業日の予想と結果。各側の先頭に置き、今日の予想を見る前に前日の勝敗を確認できるようにする。"""
     if prev is None or not prev.items:
@@ -792,7 +834,9 @@ def _previous_block(prev: ParsedPrevious | None) -> str:
             f"<small>指値{html.escape(i.entry_price)}{move}</small>"
             + (f'<small class="pn-note">{html.escape(i.note)}</small>' if i.note else "")
             + "</div>"
-            f'<div class="pr">{ret}<small>{sub_ret}</small></div></div>'
+            f'<div class="pr">{ret}<small>{sub_ret}</small></div>'
+            + _prev_detail(i.detail)
+            + "</div>"
         )
     return (
         f'<div class="prev"><div class="prev-head"><span class="prev-title">前営業日の結果</span>'
@@ -972,6 +1016,26 @@ def _intraday_block(ir: ParsedIntraday, fset: ForecastSet, set_id: str) -> str:
     )
 
 
+HOWTO_HTML = """<details class="howto"><summary>スコアと成績の見方</summary>
+<h3>スコアとは</h3>
+<p>出来高・当日の騰落率・引け位置（値動きと出来高で最大5点）と、決算前後の過去パターン（最大2点）に、いくつ当てはまったかを足した点数です（7点満点）。各候補をタップすると、項目ごとの内訳が見られます。</p>
+<p><b>点数が高い＝上がる（下がる）という保証ではありません。</b>「その日に動きが大きく、注目された度合い」の目安です。過去約2.5年の検証では、夜のスコア上位5件と全銘柄の平均との差はごく小さく、優位性は確認できていません（2026年11月時点・手数料前）。</p>
+<h3>的中・不的中の決め方</h3>
+<ul>
+<li>約定: 買いは安値が指値まで下がったとき、売りは高値が指値まで上がったときに成立します。寄り付きが指値より有利なら、寄り付きの価格で成立します。</li>
+<li>的中: 約定価格から終値までで利益が出たもの。同値は外れです。約定しなければ「不成立」で、損益はありません。</li>
+</ul>
+<h3>3種類の的中率</h3>
+<ul>
+<li>的中率: 約定した予想のうち、利益が出た割合です。</li>
+<li>方向の的中率: 予測日の終値から見て、予想した向きに動いた割合です。約定や損益は問いません。</li>
+<li>成行（参考）: 寄り付きで入って大引けで決済した場合の成績です。</li>
+</ul>
+<h3>平均利益・平均損失・損益比</h3>
+<p>勝率だけでは分からない勝ち負けの形です。損益比は「勝ったときの平均利益 ÷ 負けたときの平均損失」で、1より小さくても、勝率が高ければ全体ではプラスになることがあります。</p>
+</details>"""
+
+
 def _banner_html() -> str:
     return (
         '<div id="now-banner" class="now-banner is-none" role="status" aria-live="polite">'
@@ -1106,6 +1170,7 @@ def build_index(
 {_banner_html()}
 {_fund_block(fund)}
 {env_html}
+{HOWTO_HTML}
 {latest_html}
 {_glossary_block(_fund_block(fund), env_html, latest_html)}
 <div class="history-head"><h2 class="section-title">過去のレポート</h2><span class="count">{history_count}日分</span></div>

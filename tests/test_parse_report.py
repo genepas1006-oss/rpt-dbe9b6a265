@@ -53,7 +53,10 @@ def test_parses_new_format_buy_and_sell_sections():
     assert parsed.sell_candidates[0].name == "テスト株"
     assert len(parsed.buy_stats_lines) == 3
     assert len(parsed.sell_stats_lines) == 3
-    assert "寄り付きから上昇して" in parsed.buy_candidates[0].one_point
+    c0 = parsed.buy_candidates[0]
+    assert len(c0.scoring_rows) == 4 and c0.scoring_rows[0].startswith("出来高 | 平均の")
+    assert "点（7点満点）" in c0.reason
+    assert any("節目" in w for w in c0.watch_points)
     assert "高値5,650.0円" in parsed.buy_candidates[0].day_summary
 
 

@@ -51,11 +51,11 @@ def test_latest_report_shows_buy_and_sell_badges_with_colored_deltas(tmp_path):
     index_path = build_index(reports_dir, docs_dir, "2026-10-26 16:00")
     html_text = index_path.read_text(encoding="utf-8")
 
-    assert '<span class="side-badge buy">買い・スコア3</span>' in html_text
-    assert '<span class="side-badge sell">売り・スコア3</span>' in html_text
+    assert '<span class="side-badge buy">買い・スコア3/7点</span>' in html_text
+    assert '<span class="side-badge sell">売り・スコア3/7点</span>' in html_text
     assert '<span style="color:var(--up)">+3.89%</span>' in html_text
-    assert "タップで当日の値動きを見る" in html_text
-    assert '<span class="one-point-label">ワンポイント:</span>' in html_text
+    assert "タップでスコアの内訳と気をつける点を見る" in html_text
+    assert '<table class="score-table">' in html_text  # スコアの内訳
     assert "高値5,650.0円" in html_text
 
 
@@ -104,7 +104,7 @@ def test_no_reports_shows_placeholder_message(tmp_path):
     assert "まだレポートが生成されていません。" in html_text
 
 
-def test_outlook_is_rendered_as_separate_block(tmp_path):
+def test_card_shows_score_breakdown_and_watch_points(tmp_path):
     reports_dir = tmp_path / "reports"
     reports_dir.mkdir()
     docs_dir = tmp_path / "docs"
@@ -112,10 +112,34 @@ def test_outlook_is_rendered_as_separate_block(tmp_path):
 
     html_text = build_index(reports_dir, docs_dir, "2026-10-26 16:00").read_text(encoding="utf-8")
 
+    assert "<caption>スコアの内訳（値動き・出来高5点＋決算2点＝7点満点）</caption>" in html_text
+    assert "<th>出来高</th>" in html_text
+    assert '<div class="watch"><b>気をつける点</b>' in html_text
+    assert "スコアと成績の見方" in html_text  # 見方の説明
+
+
+def test_old_format_report_still_renders_one_point_and_outlook(tmp_path):
+    """過去分（ワンポイント・明日の見通し付きの旧フォーマット）も表示できる。"""
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    docs_dir = tmp_path / "docs"
+    (reports_dir / "2026-10-26.md").write_text(
+        "# 日本株デイクローズ・リサーチレポート 2026-10-26\n\n"
+        "## 本日の買い候補（2026-10-27向け・参考指値）\n\n"
+        "### 1位 ファナック（6954） - スコア3点\n"
+        "- 内訳: 値動き・出来高2点 / 決算パターン1点\n"
+        "- 参考指値: 5,608.8円\n"
+        "- 根拠: 当日+3.89%\n"
+        "- 当日の値動き: 始値1円 / 高値2円 / 安値1円 / 終値2円 / 出来高1株\n"
+        "- ワンポイント: 寄り付きから上昇して、高値圏で引けた。\n"
+        "- 明日の見通し: 方向感は定まっておらず、寄り付きの強弱を見極めたい。\n",
+        encoding="utf-8",
+    )
+
+    html_text = build_index(reports_dir, docs_dir, "2026-10-26 16:00").read_text(encoding="utf-8")
+
     assert '<p class="outlook buy"><span class="outlook-label">明日の見通し</span>' in html_text
-    assert '<p class="outlook sell"><span class="outlook-label">明日の見通し</span>' in html_text
-    # ワンポイント側には見通しが混ざらない
-    assert "ワンポイント:</span>寄り付きから上昇して、出来高が急増し、高値圏で引けた。</p>" in html_text
+    assert "ワンポイント:</span>寄り付きから上昇して、高値圏で引けた。</p>" in html_text
 
 
 def test_unfilled_history_button_and_reasons(tmp_path):

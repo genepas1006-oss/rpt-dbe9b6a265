@@ -12,6 +12,7 @@ from datetime import date
 
 from analysis.scoring import Side
 from config import ENTRY_DISCOUNT
+from tracking.payoff import excursions
 from tracking.trade_eval import DIRECTION_NOTE, base_price_of, is_direction_hit
 
 STATUS_LABEL = {"win": "的中", "loss": "不的中", "unfilled": "不成立", "pending": "未確定"}
@@ -31,6 +32,8 @@ class PreviousItem:
     oc_return: float | None
     side: Side = "buy"
     pred_close: float | None = None
+    target_high: float | None = None
+    target_low: float | None = None
 
     @property
     def fill_price(self) -> float | None:
@@ -40,6 +43,52 @@ class PreviousItem:
         if not self.target_open:
             return self.entry_price
         return max(self.entry_price, self.target_open) if self.side == "sell" else min(self.entry_price, self.target_open)
+
+    def explain_lines(self) -> list[str]:
+        """結果を ①約定 ②損益 ③補足 の3行で説明する（承認済み 2026-11-11）。未確定は空。"""
+        if self.status == "pending":
+            return []
+        sell = self.side == "sell"
+        verb = "売り" if sell else "買い"
+        edge, edge_label = (self.target_high, "高値") if sell else (self.target_low, "安値")
+        reach = "上がって" if sell else "下がって"
+        if self.status == "unfilled":
+            if edge is None:
+                return []
+            return [f"約定: {edge_label}{edge:,.1f}円が指値{self.entry_price:,.1f}円まで届かず、{verb}は不成立（損益なし）"]
+        fp = self.fill_price
+        if fp is None:
+            return []
+        if abs(fp - self.entry_price) > 1e-9 and self.target_open:
+            fill_text = (
+                f"始値{self.target_open:,.1f}円が指値{self.entry_price:,.1f}円より{'高い' if sell else '安い'}ため、"
+                f"始値{fp:,.1f}円で{verb}が成立（有利）"
+            )
+        elif edge is not None:
+            fill_text = f"{edge_label}{edge:,.1f}円が指値{self.entry_price:,.1f}円まで{reach}、{fp:,.1f}円で{verb}が成立"
+        else:
+            fill_text = f"{fp:,.1f}円で{verb}が成立"
+        lines = [f"約定: {fill_text}"]
+        if self.target_close is not None and self.result_return is not None:
+            diff = self.target_close - fp
+            move = "変わらず" if diff == 0 else f"{abs(diff):,.1f}円{'上がった' if diff > 0 else '下がった'}"
+            outcome = "利益" if self.result_return > 0 else "損失" if self.result_return < 0 else "損益なし"
+            lines.append(
+                f"損益: {fp:,.1f}円で{verb} → 終値{self.target_close:,.1f}円。1株あたり{move}ので"
+                f"{self.result_return * 100:+.2f}%の{outcome}"
+            )
+        extras = []
+        if self.target_high is not None and self.target_low is not None:
+            mfe, mae = excursions(self.side, fp, self.target_high, self.target_low)
+            extras.append(
+                f"日中の最大含み益+{mfe * 100:.2f}%・最大含み損-{mae * 100:.2f}%"
+                "（日足の高値・安値から。どちらが先かは分かりません）"
+            )
+        if self.note:
+            extras.append("予測日の終値から見ると予想と逆に動いており、方向の的中率では外れ扱いです")
+        if extras:
+            lines.append("補足: " + "。".join(extras))
+        return lines
 
     @property
     def note(self) -> str:
@@ -79,7 +128,7 @@ def get_previous_results(db_path: str, side: Side, before: date) -> PreviousResu
             return None
         rows = conn.execute(
             "SELECT target_date, code, name, entry_price, evaluated, filled, is_win, result_return, "
-            "target_open, target_close, oc_return, pred_close FROM predictions "
+            "target_open, target_close, oc_return, pred_close, target_high, target_low FROM predictions "
             "WHERE variant = 'main' AND side = ? AND prediction_date = ? ORDER BY id ASC",
             (side, last),
         ).fetchall()
@@ -98,6 +147,8 @@ def get_previous_results(db_path: str, side: Side, before: date) -> PreviousResu
             oc_return=r[10],
             side=side,
             pred_close=r[11],
+            target_high=r[12],
+            target_low=r[13],
         )
         for i, r in enumerate(rows, start=1)
     ]

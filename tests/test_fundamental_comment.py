@@ -153,7 +153,9 @@ def test_generate_report_uses_fundamentals():
                         day_close=1586.0, day_volume=1, daily_return=-0.0987)
     d = date(2026, 11, 9)
     text = generate_report(d, date(2026, 11, 10), [], [c], st, st, fundamentals={"4183": MITSUI}, earnings_days={"4183": 3})
-    assert "- ワンポイント: 当日-9.87%、出来高は20日平均の7.21倍、安値圏で引けた。PER 8.9倍" in text
-    assert "- 明日の見通し: ファンダメンタル面は売り方向と逆行する材料が多く" in text
+    assert "- 参考（業績・割安度）: PER 8.9倍" in text  # ファンダメンタルは参考欄に隔離（2026-11-11）
+    assert "ファンダメンタル面は売り方向と逆行する材料が多く" in text
+    assert "- 気をつける点: 決算発表が3日後に予定されており" in text
+    assert "- ワンポイント:" not in text and "- 明日の見通し:" not in text
     plain = generate_report(d, date(2026, 11, 10), [], [c], st, st)
     assert "PER" not in plain  # ファンダメンタルが無ければ従来の文

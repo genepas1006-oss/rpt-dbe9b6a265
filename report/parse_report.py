@@ -7,7 +7,7 @@ docs/のHTML生成（report/build_site.py）専用のパーサー。generate_rep
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from report.forecast_set import ForecastSet, from_md_body
 
@@ -24,6 +24,10 @@ class ParsedCandidate:
     day_summary: str = ""
     one_point: str = ""
     outlook: str = ""
+    scoring_rows: list[str] = field(default_factory=list)  # 「項目 | 実績 | 基準 | 点」
+    reason: str = ""  # 候補の理由
+    watch_points: list[str] = field(default_factory=list)  # 気をつける点
+    reference: str = ""  # 参考（業績・割安度）
 
 
 @dataclass(frozen=True)
@@ -57,6 +61,7 @@ class ParsedPreviousItem:
     move: str
     market_return: str
     note: str = ""  # 例: ギャップで有利に約定（なければ空）
+    detail: list[str] = field(default_factory=list)  # 約定・損益・補足の説明（なければ空）
 
 
 @dataclass(frozen=True)
@@ -136,16 +141,22 @@ def _parse_missed(body: str) -> list[ParsedMiss]:
 
 def _parse_previous(body: str) -> ParsedPrevious | None:
     heading, counts, items = "", [], []
+    details: list[list[str]] = []
     for line in body.splitlines():
         line = line.strip()
         if line.startswith("- 対象:"):
             parts = [p.strip() for p in line.removeprefix("- 対象:").split(" | ", 1)]
             heading = parts[0]
             counts = parts[1].split("・") if len(parts) > 1 else []
+        elif line.startswith(("- 約定:", "- 損益:", "- 補足:")):
+            if details:
+                details[-1].append(line.removeprefix("- ").strip())
         elif line.startswith("- "):
             parts = [p.strip() for p in line.removeprefix("- ").split(" | ", 7)]
             if len(parts) in (7, 8):
                 items.append(ParsedPreviousItem(*parts))
+                details.append([])
+    items = [replace(it, detail=d) for it, d in zip(items, details)]
     return ParsedPrevious(heading, counts, items) if items else None
 
 
@@ -163,6 +174,10 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
         day_summary = ""
         one_point = ""
         outlook = ""
+        scoring_rows: list[str] = []
+        reason = ""
+        watch_points: list[str] = []
+        reference = ""
         for line in block.splitlines():
             line = line.strip()
             if line.startswith("- 内訳:"):
@@ -177,6 +192,14 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
                 one_point = line.removeprefix("- ワンポイント:").strip()
             elif line.startswith("- 明日の見通し:"):
                 outlook = line.removeprefix("- 明日の見通し:").strip()
+            elif line.startswith("- 採点:"):
+                scoring_rows.append(line.removeprefix("- 採点:").strip())
+            elif line.startswith("- 候補の理由:"):
+                reason = line.removeprefix("- 候補の理由:").strip()
+            elif line.startswith("- 気をつける点:"):
+                watch_points.append(line.removeprefix("- 気をつける点:").strip())
+            elif line.startswith("- 参考（業績・割安度）:"):
+                reference = line.removeprefix("- 参考（業績・割安度）:").strip()
 
         candidates.append(
             ParsedCandidate(
@@ -190,6 +213,10 @@ def _parse_candidates(body: str) -> list[ParsedCandidate]:
                 day_summary=day_summary,
                 one_point=one_point,
                 outlook=outlook,
+                scoring_rows=scoring_rows,
+                reason=reason,
+                watch_points=watch_points,
+                reference=reference,
             )
         )
     return candidates
