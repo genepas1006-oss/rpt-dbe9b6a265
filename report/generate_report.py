@@ -109,9 +109,13 @@ def _previous_section(side_label: str, prev: PreviousResults | None) -> list[str
             if i.target_open is None or i.target_close is None
             else f"始値{i.target_open:,.1f}円 → 終値{i.target_close:,.1f}円"
         )
+        fp = i.fill_price
+        entry = f"{i.entry_price:,.1f}円" + (
+            f"（約定{fp:,.1f}円）" if fp is not None and abs(fp - i.entry_price) > 1e-9 else ""
+        )
         lines.append(
             f"- {i.rank}位 | {i.name}（{i.code}） | {STATUS_LABEL[i.status]} | "
-            f"{i.entry_price:,.1f}円 | {ret} | {move} | {oc}" + (f" | {i.note}" if i.note else "")
+            f"{entry} | {ret} | {move} | {oc}" + (f" | {i.note}" if i.note else "")
         )
     return lines
 

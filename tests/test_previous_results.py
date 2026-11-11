@@ -114,7 +114,7 @@ def test_report_text_format(tmp_path):
     text = _report(tmp_path)
     assert "## 前営業日の結果（買い）" in text
     assert "- 対象: 2026-11-05予測 → 2026-11-06 | 的中1・不的中1・不成立1・未確定1" in text
-    assert "- 1位 | 三菱商事（A） | 的中 | 995.0円 | +1.52% | 始値990.0円 → 終値1,005.0円 | +1.52%" in text
+    assert "- 1位 | 三菱商事（A） | 的中 | 995.0円（約定990.0円） | +1.52% | 始値990.0円 → 終値1,005.0円 | +1.52%" in text
     assert "- 2位 | nB（B） | 不的中 | 995.0円 | -0.50% | 始値1,000.0円 → 終値990.0円 | -1.00%" in text
     assert "- 3位 | nC（C） | 不成立 | 995.0円 | - | 始値1,000.0円 → 終値1,000.0円 | +0.00%" in text
     assert "- 4位 | nD（D） | 未確定 | 995.0円 | - | - | -" in text
@@ -158,7 +158,7 @@ def test_site_scoreboard_rows_and_order(tmp_path):
                  '<span class="st nofill">不成立 1</span>', '<span class="st pending">未確定 1</span>'):
         assert chip in page
     assert '<div class="prev-row win"><span class="rk">1</span><span class="st win">的中</span>' in page
-    assert "<b>三菱商事（A）</b><small>指値995.0円 ／ 始値990.0円 → 終値1,005.0円</small>" in page
+    assert "<b>三菱商事（A）</b><small>指値995.0円（約定990.0円） ／ 始値990.0円 → 終値1,005.0円</small>" in page
     assert '<div class="pr">+1.52%<small>成行 +1.52%</small></div>' in page
     assert '<div class="pr">約定なし<small>成行 +0.00%</small></div>' in page   # 不成立でも成行の結果は見える
     assert '<div class="pr">-<small></small></div>' in page                       # 未確定
@@ -204,3 +204,18 @@ def test_target_date_is_the_latest_actual_trading_day(tmp_path):
     conn.commit()
     conn.close()
     assert get_previous_results(db, "buy", D_TODAY).target_date == date(2026, 11, 9)
+
+
+def test_fill_price_gap_and_limit():
+    """約定価格: 寄りが有利なら寄り値、そうでなければ指値。売りは高い方、買いは安い方（2026-11-11）。"""
+    from tracking.previous import PreviousItem
+
+    def item(side, entry, open_, status="win"):
+        return PreviousItem(1, "A", "a", entry, status, 0.01, open_, 0.0, None, side=side)
+
+    assert item("sell", 3878.3, 3999.0).fill_price == 3999.0  # 売り: 寄りが高い→寄り値で約定
+    assert item("sell", 1972.8, 1962.0).fill_price == 1972.8  # 売り: 寄りが低い→指値で約定
+    assert item("buy", 995.0, 990.0).fill_price == 990.0
+    assert item("buy", 995.0, 1000.0).fill_price == 995.0
+    assert item("buy", 995.0, None).fill_price == 995.0
+    assert item("buy", 995.0, 990.0, status="unfilled").fill_price is None

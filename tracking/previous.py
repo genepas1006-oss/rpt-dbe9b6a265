@@ -33,6 +33,15 @@ class PreviousItem:
     pred_close: float | None = None
 
     @property
+    def fill_price(self) -> float | None:
+        """実際の約定価格。寄りが指値より有利なら寄り値（買いは安い方、売りは高い方）。不成立・未確定はNone。"""
+        if self.status not in ("win", "loss"):
+            return None
+        if not self.target_open:
+            return self.entry_price
+        return max(self.entry_price, self.target_open) if self.side == "sell" else min(self.entry_price, self.target_open)
+
+    @property
     def note(self) -> str:
         """的中（利益）なのに、予測日の終値から見て予想と逆に動いていた場合の注記（寄りのギャップで有利に約定）。"""
         if self.status != "win" or self.target_close is None:
