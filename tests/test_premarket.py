@@ -177,7 +177,10 @@ def test_site_shows_environment_with_tags_sources_and_accuracy(tmp_path):
     assert "方向一致 69%・相関 0.65・平均誤差 0.56%（常に0と予測した場合 0.68%）" in page
     assert "2024-08-20〜2026-11-09（540日、各日をその日より前のデータだけで予測）" in page
     assert '<span class="tag fact">事実（過去の検証）</span>' in page
-    assert '<span class="tag unknown">不明</span><div class="env-src">無料データでは取得できないため</div>' in page
+    # 取得できない情報は、毎日「不明」を並べず、折りたたみに移した（2026-11-11）
+    assert '<details class="env-more"><summary>取得できていない情報</summary>' in page
+    assert "PTS・ADR・寄り前気配・適時開示・SNS は、無料データでは取得できないため載せていません。" in page
+    assert '<div class="env-k">PTS・ADR' not in page
 
 
 def test_site_negative_gap_uses_down_color(tmp_path):
@@ -189,9 +192,9 @@ def test_site_negative_gap_uses_down_color(tmp_path):
 def test_site_without_premarket_shows_unknown_with_reason(tmp_path):
     page = _page(tmp_path, None)
     assert '<span class="env-sub">売買の助言ではありません</span>' in page
-    assert "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます" in page
+    assert "米国市場の取引はこれから（日本時間23:30〜翌朝6:00）。明朝8:30の更新で反映されます" in page
     assert "米国（S&amp;P500）前日比" not in page and '<span class="tag fact">事実</span>' not in page
-    assert '<span class="tag unknown">不明</span>' in page
+    assert '<span class="tag unknown">未確定</span>' in page
 
 
 def test_site_keeps_past_target_day_values_with_reference_label_and_next_day_unknown(tmp_path):
@@ -199,9 +202,9 @@ def test_site_keeps_past_target_day_values_with_reference_label_and_next_day_unk
     page = _page(tmp_path, _pm(for_date=date(2026, 11, 9)), report_day="2026-11-09")
     assert "2026-11-09 寄り付き前の値（対象日は過ぎています・参考） ／ 売買の助言ではありません" in page
     assert '<span style="color:var(--up)">+1.20%</span>' in page and '<span class="tag guess">推測</span>' in page
-    # 翌営業日向けの欄は「不明（理由）」として別に出す
-    assert '<div class="env-k">翌営業日向けの想定ギャップ</div><div class="env-v">不明</div>' in page
-    assert "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます" in page
+    # 翌営業日向けの欄は「未確定（理由）」として別に出す（夜は米国市場がこれから開くため。2026-11-11）
+    assert '<div class="env-k">翌営業日向けの想定ギャップ</div><div class="env-v">未確定</div>' in page
+    assert "米国市場の取引はこれから（日本時間23:30〜翌朝6:00）。明朝8:30の更新で反映されます" in page
 
 
 def test_site_current_premarket_has_no_next_day_unknown_row(tmp_path):

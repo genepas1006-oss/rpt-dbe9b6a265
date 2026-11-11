@@ -209,6 +209,9 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .env-row .tag { grid-column: 2; grid-row: 1 / span 2; justify-self: end; }
 .env-v.small { font-size: 0.85rem; font-weight: 600; }
 .env-src { font-size: 0.72rem; color: var(--text-muted); grid-column: 1 / -1; }
+.env-more { margin: 8px 0 0; font-size: 0.75rem; color: var(--text-muted); }
+.env-more summary { cursor: pointer; }
+.env-more p { margin: 4px 0 0; }
 .env-note { margin: 6px 0 0; font-size: 0.72rem; color: var(--text-muted); }
 .tag { font-size: 0.7rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
 .tag.fact { background: var(--win-bg); color: var(--win); }
@@ -739,7 +742,7 @@ def _actual_gap_row(pm: Premarket, market_gaps: dict[date, float] | None) -> str
     )
 
 
-_NEXT_DAY_UNKNOWN = "翌営業日向けの米国市場の結果は、朝の更新（米国市場の確定後）で反映されます"
+_NEXT_DAY_UNKNOWN = "米国市場の取引はこれから（日本時間23:30〜翌朝6:00）。明朝8:30の更新で反映されます"
 
 
 def _environment_block(
@@ -781,21 +784,18 @@ def _environment_block(
             rows.append(_env_row("過去の精度", "不明", "unknown", "不明", "検証に必要なデータが足りません"))
         rows.append(_actual_gap_row(pm, market_gaps))
         if not is_current:
-            rows.append(_env_row("翌営業日向けの想定ギャップ", "不明", "unknown", "不明", _NEXT_DAY_UNKNOWN))
+            rows.append(_env_row("翌営業日向けの想定ギャップ", "未確定", "unknown", "未確定", _NEXT_DAY_UNKNOWN))
     else:
         sub_title = "売買の助言ではありません"
         rows.append(
-            _env_row("想定ギャップの目安（日本株全体の平均）", "不明", "unknown", "不明", _NEXT_DAY_UNKNOWN)
+            _env_row("想定ギャップの目安（日本株全体の平均）", "未確定", "unknown", "未確定", _NEXT_DAY_UNKNOWN)
         )
-    rows.append(
-        _env_row(
-            "PTS・ADR・寄り前気配・適時開示・SNS", "不明", "unknown", "不明", "無料データでは取得できないため"
-        )
-    )
     return (
         f'<section class="env"><div class="env-head"><span class="env-title">環境認識（目安）</span>'
         f'<span class="env-sub">{html.escape(sub_title)}</span></div>'
         f'<div class="env-rows">{"".join(rows)}</div>'
+        f'<details class="env-more"><summary>取得できていない情報</summary>'
+        f"<p>PTS・ADR・寄り前気配・適時開示・SNS は、無料データでは取得できないため載せていません。</p></details>"
         f'<p class="env-note">日本株全体の平均の目安であり、個別銘柄の値動きや成績を保証するものではありません。</p>'
         f"</section>"
     )
