@@ -1,7 +1,7 @@
 """同日の全銘柄平均との比較（スコアの効果の目安）。
 
 承認済み設計（2026-11-09）:
-    - 予測日の全銘柄に、本番と同じ指値（終値 ± ENTRY_DISCOUNT、小数1桁に丸め）と
+    - 予測日の全銘柄に、本番と同じ指値（終値 ± ENTRY_DISCOUNT、呼値に丸め。2026-11-11〜）と
       同じ約定ルール（寄り値が有利なら寄り値で約定）を当てはめ、約定した銘柄のリターンを平均する。
       決済は各銘柄の「予測日の次の足」の終値。次の足がない銘柄・日は対象外。
     - スコアの効果 = 日ごとの（TOP5の約定分の平均 − 全銘柄平均）の平均。
@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from analysis.scoring import Side
+from analysis.tick import limit_price
 from config import ENTRY_DISCOUNT
 from data_sources.base import DailyBar
 from tracking.trade_eval import evaluate_trade
@@ -44,7 +45,7 @@ def compute_universe_return(
 ) -> UniverseReturn | None:
     returns: list[float] = []
     universe = 0
-    for bars in bars_by_code.values():
+    for code, bars in bars_by_code.items():
         idx = next((i for i, b in enumerate(bars) if b.trade_date == prediction_date), None)
         if idx is None or idx + 1 >= len(bars):
             continue
@@ -53,7 +54,7 @@ def compute_universe_return(
         if close <= 0:
             continue
         universe += 1
-        entry = round(close * ((1 - entry_discount) if side == "buy" else (1 + entry_discount)), 1)
+        entry = limit_price(close, side, code, entry_discount)
         result = evaluate_trade(side, entry, nb.low, nb.high, nb.close, nb.open)
         if result.filled and result.result_return is not None:
             returns.append(result.result_return)

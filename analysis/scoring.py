@@ -4,7 +4,7 @@
     total_score = technical_score(0〜5) + earnings_score(0〜2)
     total_score = 0 の銘柄は候補から除外する（水増ししない）。
     順位は total_score 降順、同点は volume_ratio 降順でタイブレークする。
-    参考指値 = 当日終値 × (1 - ENTRY_DISCOUNT)。
+    参考指値 = 当日終値 × (1 - ENTRY_DISCOUNT) を呼値に丸めた価格（2026-11-11 呼値対応。analysis.tick）。
 
 承認済み設計（2026-10-26、売り・ショート）:
     total_score・順位ロジックは買いと共通。
@@ -16,6 +16,7 @@ from typing import Literal
 
 from analysis.earnings import EarningsScore
 from analysis.technical import TechnicalScore
+from analysis.tick import limit_price
 from config import ENTRY_DISCOUNT, TOP_N
 
 Side = Literal["buy", "sell"]
@@ -65,8 +66,6 @@ def rank_candidates(
     参考指値を算出する。スコアリング・順位ロジック自体はside共通
     （呼び出し側でside別のtechnical/earningsスコアを渡し分ける）。
     """
-    price_multiplier = (1 - entry_discount) if side == "buy" else (1 + entry_discount)
-
     scored = []
     for c in candidates:
         technical_score = c.technical.technical_score if c.technical else 0
@@ -88,7 +87,7 @@ def rank_candidates(
                 technical_score=technical_score,
                 earnings_score=earnings_score,
                 volume_ratio=volume_ratio,
-                entry_price=round(c.close * price_multiplier, 1),
+                entry_price=limit_price(c.close, side, c.code, entry_discount),
                 reasons=reasons,
                 side=side,
                 day_open=c.open,
