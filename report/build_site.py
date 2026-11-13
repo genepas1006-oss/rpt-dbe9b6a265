@@ -65,6 +65,9 @@ _FSET_SCRIPT = r"""
     if (now < u) return {k: 'active', ms: u - now, from: f, until: u};
     return {k: 'expired', ms: 0, from: f, until: u};
   }
+  var bannerOpen = false;
+  var bannerEl = document.getElementById('now-banner');
+  if (bannerEl) bannerEl.addEventListener('click', function (e) { if (e.target.closest('a')) return; bannerOpen = !bannerOpen; update(); });
   function update() {
     var now = Date.now();
     var last = {};
@@ -75,6 +78,8 @@ _FSET_SCRIPT = r"""
       var badge = h.querySelector('.fset-state');
       badge.textContent = r.k === 'active' ? '🟢 有効（あと' + dur(r.ms) + '）'
         : r.k === 'waiting' ? '🟡 待機（' + md(r.from) + ' ' + hm(r.from) + 'から・あと' + dur(r.ms) + '）' : '⚪ 期限切れ';
+      var warn = h.querySelector('.fset-warn');
+      if (warn) warn.textContent = r.k === 'expired' ? '⚠ 期限切れです。いま、この予想の価格で売買しないでください' : r.k === 'waiting' ? '⚠ まだ有効ではありません。それまで、この予想で売買しないでください' : '';
       h.classList.remove('is-active', 'is-waiting', 'is-expired');
       h.classList.add('is-' + r.k);
       last[s.id] = r.k;
@@ -91,38 +96,63 @@ _FSET_SCRIPT = r"""
       .sort(function (a, b) { return (b.created_at || b.valid_from) < (a.created_at || a.valid_from) ? -1 : 1; })[0];
     var waiting = sets.filter(function (s) { return state(s, now).k === 'waiting'; })
       .sort(function (a, b) { return Date.parse(a.valid_from) - Date.parse(b.valid_from); })[0];
-    var clock = '<span class="nb-clock">現在 ' + hm(now) + '（日本時間）</span> ／ ';
-    var msg, cls;
+    var mins = parseInt(hm(now).slice(0, 2), 10) * 60 + parseInt(hm(now).slice(3, 5), 10);
+    var wdNow = tW.format(new Date(now));
+    var weekendNow = (wdNow === 'Sat' || wdNow === 'Sun');
+    var phase = weekendNow ? '休場日（土日）' : mins >= 540 && mins < 690 ? '前場' : mins >= 690 && mins < 750 ? '昼休み' : mins >= 750 && mins < 930 ? '後場' : '取引時間外';
+    var clock = '<span class="nb-clock">現在 ' + hm(now) + '（日本時間）</span>';
+    var msg, cls, chip;
     if (active) {
       var ra = state(active, now);
-      msg = clock + '<b>' + active.label + '</b>が有効です（' + hm(ra.until) + 'まで・あと' + dur(ra.ms) + '）。' + active.note;
+      chip = '🟢 ' + active.label + ' 有効（' + hm(ra.until) + 'まで・あと' + dur(ra.ms) + '）';
+      msg = '<b>' + active.label + '</b>が有効です（' + hm(ra.until) + 'まで・あと' + dur(ra.ms) + '）。' + active.note;
       cls = 'is-active';
     } else if (waiting) {
       var rw = state(waiting, now);
-      msg = clock + '<b>' + waiting.label + '</b>は ' + md(rw.from) + ' ' + hm(rw.from) + ' から有効です（あと' + dur(rw.ms) + '）。それまでは、この予想で売買しないでください。';
+      chip = '🟡 まだ使えません（' + waiting.label + ' は ' + md(rw.from) + ' ' + hm(rw.from) + ' から）';
+      msg = '<b>' + waiting.label + '</b>は ' + md(rw.from) + ' ' + hm(rw.from) + ' から有効です（あと' + dur(rw.ms) + '）。それまでは、この予想で売買しないでください。';
       cls = 'is-waiting';
     } else {
-      msg = clock + '<b>現在、有効な予想はありません。</b>下の予想は期限切れです（前日夜の予想は前場向けで、後場の売買には使えません）。'
+      chip = '⚪ 今使える予想はありません';
+      msg = '<b>現在、有効な予想はありません。</b>下の予想は期限切れです（前日夜の予想は前場向けで、後場の売買には使えません）。'
         + '昼の予想は 11:50 ごろ、夜の予想は 16:10 ごろに更新されます。';
       cls = 'is-none';
     }
-    var today = tD.format(new Date(now)), wd = tW.format(new Date(now));
+    var today = tD.format(new Date(now)), wd = wdNow;
     var latestTarget = sets.reduce(function (m, s) { return s.target_date > m ? s.target_date : m; }, '');
     function hasToday(slot) { return sets.some(function (s) { return s.slot === slot && s.target_date === today; }); }
-    var mins0 = parseInt(hm(now).slice(0, 2), 10) * 60 + parseInt(hm(now).slice(3, 5), 10);
-    var weekday = (wd !== 'Sat' && wd !== 'Sun');
-    if (weekday && mins0 >= 580 && mins0 < 690 && !hasToday('open')) {
-      msg += '<span class="nb-alert">寄り枠（9:25更新）がまだ反映されていません（休場日の場合は無視してください）。</span>';
+    var weekday = !weekendNow;
+    var alerts = '';
+    if (weekday && mins >= 580 && mins < 690 && !hasToday('open')) {
+      alerts += '<span class="nb-alert">寄り枠（9:25更新）がまだ反映されていません（休場日の場合は無視してください）。</span>';
     }
-    if (weekday && mins0 >= 725 && mins0 < 930 && !hasToday('lunch')) {
-      msg += '<span class="nb-alert">昼の予想（11:50更新）がまだ反映されていません（休場日の場合は無視してください）。</span>';
+    if (weekday && mins >= 725 && mins < 930 && !hasToday('lunch')) {
+      alerts += '<span class="nb-alert">昼の予想（11:50更新）がまだ反映されていません（休場日の場合は無視してください）。</span>';
     }
-    var minutes = parseInt(hm(now).slice(0, 2), 10) * 60 + parseInt(hm(now).slice(3, 5), 10);
-    if (wd !== 'Sat' && wd !== 'Sun' && minutes >= 540 && minutes < 930 && latestTarget && latestTarget < today) {
-      msg += '<span class="nb-alert">本日（' + today + '）向けの予想がまだ反映されていません。表示中の予想は古い情報です（休場日の場合は、この表示は無視してください）。</span>';
+    if (weekday && mins >= 540 && mins < 930 && latestTarget && latestTarget < today) {
+      alerts += '<span class="nb-alert">本日（' + today + '）向けの予想がまだ反映されていません。表示中の予想は古い情報です（休場日の場合は、この表示は無視してください）。</span>';
     }
-    banner.className = 'now-banner ' + cls;
-    text.innerHTML = msg;
+    // 取引時間の目盛り（前場 9:00-11:30 / 昼休み / 後場 12:30-15:30）と、現在位置
+    var mark = (weekday && mins >= 540 && mins <= 930) ? '<i class="nb-mark" style="left:' + ((mins - 540) / 390 * 100).toFixed(1) + '%"></i>' : '';
+    var timeline = '<div class="nb-tl"><span class="seg am' + (phase === '前場' ? ' on' : '') + '">前場</span><span class="seg lunch' + (phase === '昼休み' ? ' on' : '') + '">昼休み</span>'
+      + '<span class="seg pm' + (phase === '後場' ? ' on' : '') + '">後場</span>' + mark + '</div>'
+      + '<div class="nb-tl-lab"><span>9:00</span><span>11:30</span><span>12:30</span><span>15:30</span></div>';
+    // 予想ごとの状態と使える時間の一覧（今日以降が対象の予想を、有効→待機→期限切れの順に）
+    var order = {active: 0, waiting: 1, expired: 2};
+    var rows = sets.map(function (s) { var r = state(s, now); return {s: s, r: r}; })
+      .filter(function (x) { return x.r.k !== 'expired' || tD.format(new Date(x.r.until)) === today; })
+      .sort(function (a, b) { return order[a.r.k] - order[b.r.k] || a.r.from - b.r.from; })
+      .map(function (x) {
+        var mark2 = x.r.k === 'active' ? '🟢 使える' : x.r.k === 'waiting' ? '🟡 まだ' : '⚪ 期限切れ';
+        var day = tD.format(new Date(x.r.from)) === today ? '' : md(x.r.from) + ' ';
+        return '<li class="k-' + x.r.k + '"><b>' + mark2 + '</b> <i class="nb-lab">' + x.s.label + '</i><span>' + day + hm(x.r.from) + '〜' + hm(x.r.until) + '</span></li>';
+      }).join('');
+    var list = rows ? '<ul class="nb-list">' + rows + '</ul>' : '';
+    banner.className = 'now-banner ' + cls + (bannerOpen ? ' open' : '');
+    text.innerHTML = '<div class="nb-row">' + clock + '<span class="nb-phase">' + phase + '</span></div>'
+      + '<div class="nb-chip">' + chip + '</div>' + timeline
+      + '<div class="nb-more"><p class="nb-msg">' + msg + '</p>' + list + alerts + '</div>'
+      + '<div class="nb-hint">' + (bannerOpen ? 'タップで閉じる' : 'タップで詳細') + '</div>';
   }
   update();
   setInterval(update, 30000);
@@ -357,7 +387,33 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 .fund-days td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .fund-days th:first-child, .fund-days td:first-child { text-align: left; }
 .prev-row .pn small.pn-note { display: block; margin-top: 2px; color: var(--text-muted); font-style: italic; }
-.now-banner { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); font-size: 0.88rem; line-height: 1.6; }
+.now-banner { position: sticky; top: 0; z-index: 30; cursor: pointer; margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); font-size: 0.88rem; line-height: 1.6; }
+.now-banner .nb-row { display: flex; align-items: baseline; gap: 10px; }
+.now-banner .nb-phase { font-size: 0.78rem; font-weight: 800; padding: 1px 9px; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
+.now-banner .nb-chip { font-size: 1rem; font-weight: 800; color: var(--ink); margin: 2px 0 6px; }
+.now-banner .nb-tl { position: relative; display: flex; height: 18px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); background: var(--surface-2); }
+.now-banner .nb-tl .seg { display: flex; align-items: center; justify-content: center; font-size: 0.66rem; color: var(--text-muted); }
+.now-banner .nb-tl .am { flex: 150; } .now-banner .nb-tl .lunch { flex: 60; background: var(--stale-bg); } .now-banner .nb-tl .pm { flex: 180; }
+.now-banner .nb-tl .seg.on { font-weight: 800; color: var(--ink); background: var(--ok-bg); }
+.now-banner .nb-mark { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1px; background: var(--alert); border-radius: 2px; }
+.now-banner .nb-tl-lab { display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--text-muted); margin-top: 2px; }
+.now-banner .nb-more { margin-top: 6px; }
+.now-banner .nb-msg { margin: 0 0 6px; font-size: 0.82rem; }
+.now-banner .nb-list { list-style: none; margin: 0 0 4px; padding: 0; font-size: 0.8rem; }
+.now-banner .nb-list li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 1px dashed var(--border); }
+.now-banner .nb-list li span { color: var(--text-muted); white-space: nowrap; }
+.now-banner .nb-list li b { white-space: nowrap; }
+.now-banner .nb-list li .nb-lab { flex: 1; font-style: normal; }
+.now-banner .nb-list li.k-expired { color: var(--text-muted); }
+.now-banner .nb-list li.k-expired .nb-lab { text-decoration: line-through; }
+.now-banner .nb-hint { display: none; font-size: 0.68rem; color: var(--text-muted); text-align: right; }
+@media (max-width: 699px) {
+  .now-banner .nb-more { display: none; }
+  .now-banner.open .nb-more { display: block; }
+  .now-banner .nb-hint { display: block; }
+}
+.fset-warn { flex-basis: 100%; font-size: 0.82rem; font-weight: 800; color: var(--alert); }
+.fset-warn:empty { display: none; }
 .now-banner .nb-clock { font-weight: 800; color: var(--ink); }
 .now-banner.is-active { border-left: 5px solid var(--ok); background: var(--ok-bg); }
 .now-banner.is-waiting { border-left: 5px solid var(--wait); background: var(--wait-bg); }
@@ -1006,7 +1062,7 @@ def _fset_header(fs: ForecastSet, set_id: str) -> str:
     window = f"{fs.valid_from.month}/{fs.valid_from.day} {fs.valid_from:%H:%M}〜{fs.valid_until:%H:%M}"
     return (
         f'<div class="fset" data-id="{html.escape(set_id)}">'
-        f'<div class="fset-top"><span class="fset-state">判定中…</span><b class="fset-label">{html.escape(fs.label)}</b></div>'
+        f'<div class="fset-top"><span class="fset-state">判定中…</span><b class="fset-label">{html.escape(fs.label)}</b><span class="fset-warn"></span></div>'
         f'<div class="fset-meta"><span>作成 {html.escape(created)}</span>'
         f"<span>データ基準 {html.escape(fmt_md_hm(fs.data_as_of))}（{html.escape(fs.data_note)}）</span>"
         f"<span>使える時間 {html.escape(window)}</span></div>"
