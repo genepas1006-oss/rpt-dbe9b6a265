@@ -9,10 +9,12 @@
 
 import argparse
 import sys
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from analysis.futures_gap import compute_futures_gap
 from analysis.market_gaps import load_market_gaps
 from data_sources.yfinance_source import YFinanceSource
 from report.build_site import build_index
@@ -25,6 +27,7 @@ MARKET_GAPS_PATH = Path("data/market_gaps.json")
 REPORTS_DIR = Path("reports")
 DOCS_DIR = Path("docs")
 US_SYMBOL = "^GSPC"
+FUTURES_SYMBOLS = ("NIY=F", "NKD=F")  # 日経225先物（CME・円建て→ドル建ての順に試す）
 
 
 def main() -> int:
@@ -50,6 +53,21 @@ def main() -> int:
     if pm is None:
         print(f"環境認識を更新できませんでした: {reason}")
         return 1
+
+    # 日経225先物（夜間）ベースの想定。取れなくても、米国市場ベースの結果だけで続ける
+    fut, fut_reason = None, "先物の取得に失敗しました（取得制限・休場など）"
+    for symbol in FUTURES_SYMBOLS:
+        try:
+            fut, fut_reason = compute_futures_gap(source.get_symbol_hourly_bars(symbol), gaps, for_date, symbol)
+        except Exception as e:  # noqa: BLE001
+            fut, fut_reason = None, f"先物の計算に失敗しました: {e}"
+        if fut is not None:
+            break
+    pm = replace(pm, futures=fut, futures_note=None if fut else fut_reason)
+    if fut:
+        print(f"先物 {fut.symbol} {fut.move * 100:+.2f}% → 想定ギャップ 約{fut.expected_gap * 100:+.1f}%（推測）")
+    else:
+        print(f"先物ベースの想定は出せませんでした: {fut_reason}")
 
     save_premarket(REPORTS_DIR / "premarket.json", pm)
     print(

@@ -1,12 +1,13 @@
 """yfinanceを用いたデフォルトデータソース実装。"""
 
 import logging
+import time
 from datetime import date, timedelta, timezone
 
 import yfinance as yf
 
 from config import yfinance_symbol
-from data_sources.base import DailyBar, DataSource, Fundamentals, IntradayBar
+from data_sources.base import DailyBar, DataSource, Fundamentals, HourBar, IntradayBar
 
 logger = logging.getLogger(__name__)
 JST = timezone(timedelta(hours=9))
@@ -67,6 +68,26 @@ class YFinanceSource(DataSource):
             except (KeyError, ValueError, TypeError):
                 continue
         return bars
+
+    def get_symbol_hourly_bars(self, symbol: str, period: str = "730d", retries: int = 3) -> list[HourBar]:
+        """先物などの1時間足（日本時間）。取得に失敗（レート制限など）した場合は少し待って再試行し、だめなら空を返す。"""
+        for attempt in range(retries):
+            try:
+                hist = yf.Ticker(symbol).history(period=period, interval="1h")
+            except Exception:  # noqa: BLE001
+                logger.warning("1時間足の取得に失敗: %s", symbol, exc_info=True)
+                hist = None
+            if hist is not None and len(hist):
+                bars = []
+                for idx, row in hist.iterrows():
+                    try:
+                        bars.append(HourBar(idx.to_pydatetime().astimezone(JST), float(row["Close"])))
+                    except (KeyError, ValueError, TypeError):
+                        continue
+                return bars
+            if attempt < retries - 1:
+                time.sleep(5 * (attempt + 1))
+        return []
 
     def get_fundamentals(self, code: str) -> Fundamentals | None:
         symbol = yfinance_symbol(code)

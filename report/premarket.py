@@ -21,6 +21,7 @@ from analysis.macro_gap import (
     returns_from_bars,
     rolling_forecasts,
 )
+from analysis.futures_gap import FuturesGap
 from data_sources.base import DailyBar
 
 
@@ -40,6 +41,8 @@ class Premarket:
     mae_zero: float | None
     direction_acc: float | None
     generated_at: str
+    futures: FuturesGap | None = None       # 日経225先物（夜間）ベースの想定（2026-11-13追加）
+    futures_note: str | None = None         # 先物が使えなかった理由
 
     def to_json(self) -> str:
         d = asdict(self)
@@ -67,6 +70,8 @@ class Premarket:
             mae_zero=d.get("mae_zero"),
             direction_acc=d.get("direction_acc"),
             generated_at=str(d.get("generated_at", "")),
+            futures=FuturesGap(**d["futures"]) if d.get("futures") else None,
+            futures_note=d.get("futures_note"),
         )
 
 

@@ -742,6 +742,37 @@ def _actual_gap_row(pm: Premarket, market_gaps: dict[date, float] | None) -> str
     )
 
 
+def _futures_rows(pm: Premarket) -> list[str]:
+    """日経225先物（夜間）ベースの想定ギャップ。取れなかった場合は理由付きの「不明」を出す。"""
+    fut = pm.futures
+    if fut is None:
+        if not pm.futures_note:
+            return []  # 先物を使う前（旧形式）の値
+        return [_env_row("日経225先物（夜間）の動き", "不明", "unknown", "不明", pm.futures_note)]
+    rows = [
+        _env_row(
+            "日経225先物（夜間）の動き",
+            color_deltas(html.escape(f"{fut.move * 100:+.2f}%")),
+            "fact", "事実", f"CME {fut.symbol}（Yahoo Finance・1時間足）｜{fut.base_time}頃 → {fut.target_time}頃",
+        ),
+        _env_row(
+            "想定ギャップの目安・先物ベース（日本株全体の平均）",
+            color_deltas(html.escape(f"約{fut.expected_gap * 100:+.1f}%")),
+            "guess", "推測", f"傾き{fut.slope:.2f}×先物の動き・直近{fut.n_fit}営業日の回帰",
+        ),
+    ]
+    if fut.direction_acc is not None and fut.corr is not None and fut.mae is not None and fut.mae_zero is not None:
+        accuracy = (
+            f"方向一致 {fut.direction_acc * 100:.0f}%・相関 {fut.corr:.2f}・平均誤差 {fut.mae * 100:.2f}%"
+            f"（常に0と予測した場合 {fut.mae_zero * 100:.2f}%）"
+        )
+        rows.append(
+            _env_row("過去の精度・先物ベース", html.escape(accuracy), "fact", "事実（過去の検証）",
+                     f"{fut.eval_n}日、各日をその日より前のデータだけで予測", small=True)
+        )
+    return rows
+
+
 _NEXT_DAY_UNKNOWN = "米国市場の取引はこれから（日本時間23:30〜翌朝6:00）。明朝8:30の更新で反映されます"
 
 
@@ -782,6 +813,7 @@ def _environment_block(
             rows.append(_env_row("過去の精度", html.escape(accuracy), "fact", "事実（過去の検証）", src, small=True))
         else:
             rows.append(_env_row("過去の精度", "不明", "unknown", "不明", "検証に必要なデータが足りません"))
+        rows += _futures_rows(pm)
         rows.append(_actual_gap_row(pm, market_gaps))
         if not is_current:
             rows.append(_env_row("翌営業日向けの想定ギャップ", "未確定", "unknown", "未確定", _NEXT_DAY_UNKNOWN))

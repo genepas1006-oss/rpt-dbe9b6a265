@@ -34,6 +34,14 @@ class IntradayBar:
 
 
 @dataclass(frozen=True)
+class HourBar:
+    """1時間足（始まりの時刻は日本時間。足は start から1時間）。先物の夜間の動きなどに使う。"""
+
+    start: datetime
+    close: float
+
+
+@dataclass(frozen=True)
 class Fundamentals:
     """ファンダメンタル指標（取得できた項目のみ。取得できないものはNone）。比率は小数（0.1 = 10%）。"""
 
