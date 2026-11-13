@@ -33,16 +33,26 @@ from config import COST_RATE
 from tracking.unfilled import UnfilledPrediction
 
 
-def _stats_lines(stats: WinRateStats) -> list[str]:
-    lines = [
+def _stats_lines(stats: WinRateStats, market: MarketOrderStats | None = None) -> list[str]:
+    """成績欄。見出しの的中率は、始値→終値の方向（約定の有無を問わない。2026-11-11承認・段階A）。"""
+    lines = []
+    if market is not None:
+        if market.count == 0 or market.win_rate is None:
+            lines.append("- 的中率（始値→終値の方向）: データなし")
+        else:
+            lines.append(f"- 的中率（始値→終値の方向）: {market.win_rate * 100:.1f}%（{market.count}件）")
+    lines += [
         f"- 答え合わせ済み予測数: {stats.total_predictions}件",
         f"- 指値約定数: {stats.filled_count}件"
         f"（不成立: {stats.total_predictions - stats.filled_count}件）",
     ]
     if stats.win_rate is None:
-        lines.append("- 的中率（約定分のみ）: データなし")
+        lines.append("- 指値で約定した場合の的中率（参考）: データなし")
     else:
-        lines.append(f"- 的中率（約定分のみ）: {stats.win_rate * 100:.1f}%")
+        lines.append(
+            f"- 指値で約定した場合の的中率（参考）: {stats.win_rate * 100:.1f}%"
+            f"（{stats.win_count}/{stats.filled_count}件）"
+        )
     if stats.direction_total:
         lines.append(
             f"- 方向の的中率（予測日終値比）: {stats.direction_hits / stats.direction_total * 100:.1f}%"
@@ -58,22 +68,16 @@ def _score_effect_lines(effect: ScoreEffect | None) -> list[str]:
     if effect is None:
         return []
     return [
-        f"- 全銘柄平均との差（スコアの効果の目安）: {effect.excess * 100:+.2f}%"
+        f"- 全銘柄平均との差（スコアの効果の目安・指値で約定した場合）: {effect.excess * 100:+.2f}%"
         f"（TOP5 {effect.top_avg * 100:+.2f}% / 全銘柄 {effect.bench_avg * 100:+.2f}%・{effect.days}日）"
     ]
 
 
 def _market_order_lines(stats: MarketOrderStats | None) -> list[str]:
-    """成行（寄り→引け）の参考成績。始値が記録された予測が1件もなければ出さない。"""
-    if stats is None or stats.count == 0:
+    """指値で約定した場合の平均リターン（同じ予測）。始値→終値の的中率と平均リターンは、成績欄の見出し・損益比の行に移した。"""
+    if stats is None or stats.count == 0 or stats.limit_avg_return is None:
         return []
-    lines = [
-        f"- 成行（寄り→引け）の的中率（参考）: {stats.win_rate * 100:.1f}%（{stats.count}件）",
-        f"- 成行（寄り→引け）の平均リターン（参考）: {stats.avg_return * 100:+.2f}%",
-    ]
-    if stats.limit_avg_return is not None:
-        lines.append(f"- 指値の平均リターン（同じ予測・約定分）: {stats.limit_avg_return * 100:+.2f}%")
-    return lines
+    return [f"- 指値の平均リターン（同じ予測・約定分）: {stats.limit_avg_return * 100:+.2f}%"]
 
 
 def _payoff_lines(stats: PayoffStats | None) -> list[str]:
@@ -89,10 +93,10 @@ def _payoff_lines(stats: PayoffStats | None) -> list[str]:
         loss = f"-{stats.avg_loss * 100:.2f}%"
     ratio = "算出不可" if stats.payoff_ratio is None else f"{stats.payoff_ratio:.2f}"
     return [
-        f"- 平均利益（勝った場合のリターン）: {win}（{stats.wins}件）",
-        f"- 平均損失（負けた場合のリターン）: {loss}（{stats.losses}件）",
+        f"- 平均利益（始値→終値・勝った場合のリターン）: {win}（{stats.wins}件）",
+        f"- 平均損失（始値→終値・負けた場合のリターン）: {loss}（{stats.losses}件）",
         f"- 損益比（平均利益÷平均損失）: {ratio}",
-        f"- 1件あたりの平均リターン: {stats.avg_return * 100:+.2f}%",
+        f"- 1件あたりの平均リターン（始値→終値）: {stats.avg_return * 100:+.2f}%",
     ]
 
 
@@ -249,6 +253,8 @@ def generate_report(
     sell_exit: list[ExitStats] | None = None,
     exp_buy_exit: list[ExitStats] | None = None,
     exp_sell_exit: list[ExitStats] | None = None,
+    exp_buy_market: MarketOrderStats | None = None,
+    exp_sell_market: MarketOrderStats | None = None,
     buy_payoff: PayoffStats | None = None,
     sell_payoff: PayoffStats | None = None,
     index_return: float | None = None,
@@ -263,14 +269,14 @@ def generate_report(
         "",
         *set_lines,
         "## デモ検証成績（買い・現時点までの累計）",
-        *_stats_lines(buy_stats),
+        *_stats_lines(buy_stats, buy_market),
         *_payoff_lines(buy_payoff),
         *_score_effect_lines(buy_effect),
         *_market_order_lines(buy_market),
         *_exit_lines(buy_exit),
         "",
         "## デモ検証成績（売り・現時点までの累計）",
-        *_stats_lines(sell_stats),
+        *_stats_lines(sell_stats, sell_market),
         *_payoff_lines(sell_payoff),
         *_score_effect_lines(sell_effect),
         *_market_order_lines(sell_market),
@@ -302,15 +308,15 @@ def generate_report(
 
     # テスト枠（値動き重視・試験運用）。本番の成績・仮想資金には含めない
     if exp_buy_candidates or exp_sell_candidates:
-        for label, stats, effect, exits in (
-            ("買い", exp_buy_stats, exp_buy_effect, exp_buy_exit),
-            ("売り", exp_sell_stats, exp_sell_effect, exp_sell_exit),
+        for label, stats, effect, exits, mkt in (
+            ("買い", exp_buy_stats, exp_buy_effect, exp_buy_exit, exp_buy_market),
+            ("売り", exp_sell_stats, exp_sell_effect, exp_sell_exit, exp_sell_market),
         ):
             if stats is not None:
                 lines += [
                     "",
                     f"## テスト枠の成績（{label}・値動き重視）",
-                    *_stats_lines(stats),
+                    *_stats_lines(stats, mkt),
                     *_score_effect_lines(effect),
                     *_exit_lines(exits),
                 ]

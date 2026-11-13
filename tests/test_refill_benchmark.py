@@ -157,12 +157,12 @@ def test_report_line_and_site_tile_for_score_effect(tmp_path):
     st = WinRateStats(total_predictions=10, filled_count=8, win_count=4, win_rate=0.5)
     eff = ScoreEffect(days=2, top_avg=0.00125, bench_avg=0.00118, excess=0.000066)
     text = generate_report(D0, D1, [], [], st, st, buy_effect=eff)
-    assert "- 全銘柄平均との差（スコアの効果の目安）: +0.01%（TOP5 +0.12% / 全銘柄 +0.12%・2日）" in text
+    assert "- 全銘柄平均との差（スコアの効果の目安・指値で約定した場合）: +0.01%（TOP5 +0.12% / 全銘柄 +0.12%・2日）" in text
     reports = tmp_path / "reports"
     reports.mkdir()
     (reports / "2026-11-09.md").write_text(text, encoding="utf-8")
     page = build_index(reports, tmp_path / "docs", "x").read_text(encoding="utf-8")
-    assert "全銘柄平均との差（スコアの効果の目安）" in page and "+0.01%" in page
+    assert "全銘柄平均との差（スコアの効果の目安・指値で約定した場合）" in page and "+0.01%" in page
 
 
 # ---- 株式分割などで基準の違う寄り値を使わない（2026-11-10 バグ修正） ----

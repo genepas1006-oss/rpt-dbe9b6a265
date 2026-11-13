@@ -239,6 +239,8 @@ def run(prediction_date: date) -> Path:
         sell_exit=get_exit_stats(DB_PATH, "sell"),
         exp_buy_exit=get_exit_stats(DB_PATH, "buy", VOLATILE),
         exp_sell_exit=get_exit_stats(DB_PATH, "sell", VOLATILE),
+        exp_buy_market=get_market_order_stats(DB_PATH, "buy", VOLATILE),
+        exp_sell_market=get_market_order_stats(DB_PATH, "sell", VOLATILE),
         buy_payoff=get_payoff_stats(DB_PATH, "buy"),
         sell_payoff=get_payoff_stats(DB_PATH, "sell"),
         index_return=index_daily_returns(index_bars).get(prediction_date),

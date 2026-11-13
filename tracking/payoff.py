@@ -1,7 +1,7 @@
 """勝ちの平均利益・負けの平均損失・損益比、および日中の最大含み益・最大含み損。
 
 承認済み（2026-11-11）:
-    勝ち = 約定してリターン > 0。0以下（同値を含む）は負けに数える。
+    勝ち = リターン > 0（始値基準では約定の有無を問わず、始値→終値のリターン）。0以下（同値を含む）は負けに数える。
     平均利益 = 勝ちのリターンの平均 / 平均損失 = 負けの損失幅（正の値）の平均 / 損益比 = 平均利益 ÷ 平均損失。
     負けがない・平均損失が0なら損益比はNone、勝ちがなければ平均利益はNone・損益比は0。
     最大含み益・最大含み損は約定価格を基準にした日足の高値・安値からの値（高値と安値のどちらが先かは分からない）。
@@ -53,14 +53,21 @@ def compute_payoff(returns: list[float]) -> PayoffStats | None:
     )
 
 
-def get_payoff_stats(db_path: str, side: Side, variant: str = "main") -> PayoffStats | None:
+def get_payoff_stats(db_path: str, side: Side, variant: str = "main", basis: str = "open") -> PayoffStats | None:
+    """basis="open": 始値→終値のリターン（約定の有無を問わない。2026-11-11承認・段階A）/ "limit": 指値で約定した分の損益。"""
+    if basis == "open":
+        sql = (
+            "SELECT oc_return FROM predictions WHERE evaluated = 1 AND data_anomaly = 0 "
+            "AND variant = ? AND side = ? AND oc_return IS NOT NULL"
+        )
+    else:
+        sql = (
+            "SELECT result_return FROM predictions WHERE evaluated = 1 AND filled = 1 AND data_anomaly = 0 "
+            "AND variant = ? AND side = ? AND result_return IS NOT NULL"
+        )
     conn = sqlite3.connect(db_path)
     try:
-        rows = conn.execute(
-            "SELECT result_return FROM predictions WHERE evaluated = 1 AND filled = 1 AND data_anomaly = 0 "
-            "AND variant = ? AND side = ? AND result_return IS NOT NULL",
-            (variant, side),
-        ).fetchall()
+        rows = conn.execute(sql, (variant, side)).fetchall()
     finally:
         conn.close()
     return compute_payoff([r[0] for r in rows])

@@ -183,21 +183,23 @@ def _report(buy_market=MARKET, sell_market=None):
 
 def test_report_lines_format():
     text = _report()
-    assert "- 成行（寄り→引け）の的中率（参考）: 33.3%（3件）" in text
-    assert "- 成行（寄り→引け）の平均リターン（参考）: +0.17%" in text
+    assert "- 的中率（始値→終値の方向）: 33.3%（3件）" in text  # 見出しの的中率（2026-11-11 段階A）
+    assert "- 指値で約定した場合の的中率（参考）: 50.0%（4/8件）" in text
+    assert "成行（寄り→引け）の的中率" not in text  # 見出しと重複するため廃止
     assert "- 指値の平均リターン（同じ予測・約定分）: +0.25%" in text
 
 
 def test_report_omits_lines_when_no_data():
-    assert "成行" not in _report(buy_market=None)
-    assert "成行" not in _report(buy_market=MarketOrderStats(0, 0, None, None, None))
+    assert "始値→終値の方向" not in _report(buy_market=None)
+    assert "- 的中率（始値→終値の方向）: データなし" in _report(buy_market=MarketOrderStats(0, 0, None, None, None))
+    assert "指値の平均リターン" not in _report(buy_market=MarketOrderStats(0, 0, None, None, None))
     no_limit = _report(buy_market=MarketOrderStats(2, 1, 0.5, 0.001, None))
-    assert "成行（寄り→引け）の的中率（参考）: 50.0%（2件）" in no_limit and "指値の平均リターン" not in no_limit
+    assert "的中率（始値→終値の方向）: 50.0%（2件）" in no_limit and "指値の平均リターン" not in no_limit
 
 
 def test_parse_keeps_new_lines_as_stats():
     parsed = parse_report(_report())
-    assert any("成行（寄り→引け）の的中率（参考）" in l for l in parsed.buy_stats_lines)
+    assert any("的中率（始値→終値の方向）" in l for l in parsed.buy_stats_lines)
 
 
 def test_site_tiles_no_bar_no_sign_color_and_win_rate_feature_unchanged(tmp_path):
@@ -205,11 +207,10 @@ def test_site_tiles_no_bar_no_sign_color_and_win_rate_feature_unchanged(tmp_path
     reports.mkdir()
     (reports / "2026-11-06.md").write_text(_report(buy_market=MarketOrderStats(3, 1, 1 / 3, -0.0021, 0.0025126)), encoding="utf-8")
     page = build_index(reports, tmp_path / "docs", "t").read_text(encoding="utf-8")
-    # バー付きの大きなタイルは「的中率（約定分のみ）」だけ（買い・売りの2つ）。成行のタイルには付かない
-    assert page.count('class="stat-tile feature"') == 2 and page.count('class="bar"') == 2
-    assert '<span class="cap">成行（寄り→引け）の的中率（参考）</span><span class="val">33.3%<span class="sub">（3件）</span></span>' in page
-    assert '<span class="val">-0.21%</span>' in page  # 平均リターンは色付けしない
-    assert '<span class="val">+0.25%</span>' in page
+    # バー付きの大きなタイルは見出しの「的中率（始値→終値の方向）」だけ（買いの1つ。売りは始値のデータなし）
+    assert page.count('class="stat-tile feature"') == 1 and page.count('class="bar"') == 1
+    assert '<span class="cap">的中率（始値→終値の方向）</span><span class="val">33.3%<span class="sub">（3件）</span></span>' in page
+    assert '<span class="val">+0.25%</span>' in page  # 指値の平均リターンは色付けしない
     assert 'color:var(--down)">-0.21%' not in page
 
 

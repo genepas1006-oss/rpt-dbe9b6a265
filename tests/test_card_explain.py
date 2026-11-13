@@ -132,3 +132,16 @@ def test_d2_same_as_index_and_weaker():
 )
 def test_d3_round_levels(close, expected):
     assert round_level_text(close) == expected
+
+
+def test_payoff_lines_text():
+    from report.generate_report import _payoff_lines
+
+    lines = _payoff_lines(compute_payoff([0.02, -0.01, 0.005, -0.015, 0.01]))
+    assert lines[0] == "- 平均利益（始値→終値・勝った場合のリターン）: +1.17%（3件）"
+    assert lines[1] == "- 平均損失（始値→終値・負けた場合のリターン）: -1.25%（2件）"
+    assert lines[2] == "- 損益比（平均利益÷平均損失）: 0.93"
+    assert lines[3] == "- 1件あたりの平均リターン（始値→終値）: +0.20%"
+    wins_only = _payoff_lines(compute_payoff([0.01, 0.02]))
+    assert wins_only[1].endswith("なし（0件）") and wins_only[2].endswith("算出不可")
+    assert _payoff_lines(None) == []
