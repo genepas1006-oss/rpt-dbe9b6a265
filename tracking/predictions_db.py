@@ -264,9 +264,19 @@ def record_evaluation(
         result = evaluate_trade(side, entry_price, target_low, target_high, target_close, target_open)
         filled, result_return, is_win = result.filled, result.result_return, result.is_win
 
-        # 約定したが的中しなかった予測にだけ原因タグを付ける（予測時の値が記録されている行のみ）
+        # 成行（翌営業日の始値で入り、同日の終値で決済）のリターン。必ず約定する前提
+        oc_return = None
+        if target_open is not None and target_open > 0:
+            oc_return = (
+                (target_open - target_close) / target_open
+                if side == "sell"
+                else (target_close - target_open) / target_open
+            )
+
+        # 始値→終値で的中しなかった（0以下）予測に原因タグを付ける。指値の約定の有無は問わない
+        # （2026-11-17 段階C。予測時の値が記録されている行のみ）
         miss_causes = None
-        if filled and is_win is False and pred_close is not None:
+        if oc_return is not None and oc_return <= 0 and pred_close is not None:
             miss_causes = json.dumps(
                 classify_miss(
                     side,
@@ -277,15 +287,6 @@ def record_evaluation(
                     market_return,
                 ),
                 ensure_ascii=False,
-            )
-
-        # 成行（翌営業日の始値で入り、同日の終値で決済）の参考リターン。必ず約定する前提
-        oc_return = None
-        if target_open is not None and target_open > 0:
-            oc_return = (
-                (target_open - target_close) / target_open
-                if side == "sell"
-                else (target_close - target_open) / target_open
             )
 
         anomaly = int(is_data_anomaly(pred_close or entry_price, target_close))  # 予測日終値が未記録なら指値で代用

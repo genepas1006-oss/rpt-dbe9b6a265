@@ -215,7 +215,8 @@ def test_get_missed_predictions_filters_orders_and_formats_detail(tmp_path):
     assert [m.code for m in get_missed_predictions(db, "sell")] == ["SELL"]
     old = buys[1]
     assert old.causes == ["地合い悪化", "寄りで下落"]
-    assert old.detail == "指値995.0円 → 終値980.0円／日経平均-1.50%／寄り付きは予測日終値比-1.00%"
+    # 始値基準（2026-11-17 段階C）: 始値990円→終値980円。指値の結果は注記
+    assert old.detail == "始値990.0円 → 終値980.0円／日経平均-1.50%／寄り付きは予測日終値比-1.00%／指値: 約定 -1.01%"
     assert old.result_return == (980 - 990.0) / 990.0  # 寄り990が指値995より有利 → 990で約定
 
 

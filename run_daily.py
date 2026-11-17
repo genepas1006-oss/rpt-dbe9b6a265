@@ -28,7 +28,9 @@ from tracking.bars_5m import save_5m_bars
 from tracking.exit_sim import get_exit_stats
 from tracking.payoff import get_payoff_stats
 from tracking.evaluate import evaluate_pending_predictions
-from tracking.refill import backfill_target_open, flag_anomalies, recompute_fills, repair_inconsistent_opens
+from tracking.refill import (
+    backfill_open_misses, backfill_target_open, flag_anomalies, recompute_fills, repair_inconsistent_opens,
+)
 from tracking.market import index_daily_returns
 from tracking.intraday_db import evaluate_intraday_predictions
 from tracking.miss_reviews import update_miss_reviews
@@ -92,6 +94,7 @@ def run(prediction_date: date) -> Path:
         backfill_target_open(DB_PATH, source)
         recompute_fills(DB_PATH)
         flag_anomalies(DB_PATH)
+        backfill_open_misses(DB_PATH)  # 始値→終値で的中しなかった予想に原因タグを付ける（不成立の行も、過去分も）
         update_miss_reviews(DB_PATH)  # 外れた予想の検証メモ（過去分の後追いも含む）
     except Exception as e:  # noqa: BLE001
         print(f"[refill] 再計算に失敗しました: {e}")

@@ -753,7 +753,7 @@ def _miss_block(items: list[ParsedMiss]) -> str:
     return (
         f'<details class="unfilled misses"><summary><span>不的中の履歴</span>'
         f'<span class="uf-count">{len(items)}件</span></summary>'
-        f'<p class="uf-help">約定したものの、的中しなかった予測の一覧です。原因は、翌営業日の地合い・寄り付き・'
+        f'<p class="uf-help">始値→終値で的中しなかった予測（同値を含む）の一覧です。指値が不成立だった予想も含みます。原因は、翌営業日の地合い・寄り付き・'
         f"予測時の勢いから自動で付けたタグで、複数付くことがあります。"
         f"原因の記録を始めた後の予測だけが対象です。"
         f"各予測の「主因」「副次要因」は、値動きの経過とあわせた検証メモです。分からない用語は、ページ内の「用語の説明」をご覧ください。</p>"

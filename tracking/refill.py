@@ -154,3 +154,24 @@ def flag_anomalies(db_path: str) -> int:
         return len(ids)
     finally:
         conn.close()
+
+
+def backfill_open_misses(db_path: str) -> int:
+    """始値→終値で的中しなかった（oc_return <= 0）答え合わせ済みの予測のうち、原因タグが未記録の行に付ける（2026-11-17 段階C）。
+
+    不成立だった予想にも付ける。予測時の値（予測日終値）が未記録の行・データ異常の行は付けない。何度実行しても結果は同じ。
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, side, pred_close, pred_daily_return, pred_volume_ratio, target_open, market_return "
+            "FROM predictions WHERE evaluated = 1 AND variant = 'main' AND data_anomaly = 0 "
+            "AND oc_return IS NOT NULL AND oc_return <= 0 AND miss_causes IS NULL AND pred_close IS NOT NULL"
+        ).fetchall()
+        for pid, side, pred_close, pred_ret, pred_vr, t_open, market in rows:
+            tags = classify_miss(side, pred_close, pred_ret or 0.0, pred_vr or 0.0, t_open, market)
+            conn.execute("UPDATE predictions SET miss_causes = ? WHERE id = ?", (json.dumps(tags, ensure_ascii=False), pid))
+        conn.commit()
+        return len(rows)
+    finally:
+        conn.close()

@@ -25,7 +25,7 @@ def test_m1_sell_gap_is_primary():
     assert mt.gap == pytest.approx(0.02) and mt.open_to_close == pytest.approx(5 / 1020)
     assert mt.favorable == pytest.approx(10 / 1020) and mt.adverse == pytest.approx(10 / 1020)
     assert r.primary == "寄りで上昇" and r.secondary == ["地合い上昇"]
-    assert "寄り付きで予測日の終値比+2.00%" in r.text and "約定価格1,020.0円" in r.text and "終値で-0.49%" in r.text
+    assert "寄り付きで予測日の終値比+2.00%" in r.text and "始値1,020.0円" in r.text and "終値で-0.49%" in r.text
 
 
 def test_m2_buy_market_is_primary_with_gap_secondary():
@@ -104,7 +104,7 @@ def test_glossary_filters_terms_in_order_and_explains_review_terms():
     assert [t for t, _ in terms_in(text)] == ["日経平均", "寄り付き", "ギャップ", "PBR", "割安"]
     assert terms_in("専門用語なし") == []
     used = {t for t, _ in terms_in(_review("sell", 1005, 1000, 1020, 1030, 1010, 1025, 0.012).text)}
-    assert {"ギャップ", "寄り付き", "終値", "約定"} <= used
+    assert {"ギャップ", "寄り付き", "終値"} <= used
     used2 = {t for t, _ in terms_in(_review("buy", 995, 1000, 990, 995, 980, 985, -0.02).text)}
     assert {"日経平均", "超過", "終値"} <= used2
     assert len({t for t, _ in GLOSSARY}) == len(GLOSSARY)  # 重複なし
@@ -118,34 +118,35 @@ def db(tmp_path):
     return p
 
 
-def _insert(db, code, side="sell", is_win=0, filled=1, anomaly=0, fjson=None, edays=None, pdate="2026-11-09"):
+def _insert(db, code, side="sell", is_win=0, filled=1, anomaly=0, fjson=None, edays=None, pdate="2026-11-09", oc=-0.0049):
     conn = sqlite3.connect(db)
     conn.execute(
         "INSERT INTO predictions (prediction_date, code, name, side, total_score, technical_score, earnings_score, "
         "entry_price, reasons, target_date, evaluated, filled, target_low, target_high, target_close, target_open, "
         "result_return, is_win, created_at, pred_close, pred_daily_return, pred_volume_ratio, market_return, "
-        "miss_causes, data_anomaly, fundamental_json, earnings_days) VALUES (?, ?, ?, ?, 1, 1, 0, 1005, '[]', '2026-11-10', "
-        "1, ?, 1010, 1030, 1025, 1020, -0.0049, ?, 'now', 1000, 0.0, 1.0, 0.012, '[\"寄りで上昇\"]', ?, ?, ?)",
-        (pdate, code, code, side, filled, is_win, anomaly, fjson, edays),
+        "miss_causes, data_anomaly, fundamental_json, earnings_days, oc_return) VALUES (?, ?, ?, ?, 1, 1, 0, 1005, '[]', '2026-11-10', "
+        "1, ?, 1010, 1030, 1025, 1020, -0.0049, ?, 'now', 1000, 0.0, 1.0, 0.012, '[\"寄りで上昇\"]', ?, ?, ?, ?)",
+        (pdate, code, code, side, filled, is_win, anomaly, fjson, edays, oc),
     )
     conn.commit(); conn.close()
 
 
 def test_update_miss_reviews_creates_updates_and_deletes(db):
+    # 始値→終値で判定（2026-11-17 段階C）: 指値が不成立でも、始値→終値で的中していなければ対象
     _insert(db, "A")
-    _insert(db, "WIN", is_win=1)
+    _insert(db, "WIN", is_win=1, oc=0.01)
     _insert(db, "UNF", filled=0, is_win=None)
     _insert(db, "ANOM", anomaly=1)
-    assert update_miss_reviews(db) == 1
+    assert update_miss_reviews(db) == 2  # A と UNF
     assert update_miss_reviews(db) == 0  # 何度実行しても同じ
     conn = sqlite3.connect(db)
-    row = conn.execute("SELECT primary_cause, secondary_causes, review_text FROM miss_reviews").fetchall()
-    assert len(row) == 1 and row[0][0] == "寄りで上昇" and json.loads(row[0][1]) == ["地合い上昇"]
+    row = conn.execute("SELECT primary_cause, secondary_causes, review_text FROM miss_reviews ORDER BY prediction_id").fetchall()
+    assert len(row) == 2 and row[0][0] == "寄りで上昇" and json.loads(row[0][1]) == ["地合い上昇"]
     # 再計算で的中に変わった行のメモは消える
-    conn.execute("UPDATE predictions SET is_win = 1 WHERE code = 'A'"); conn.commit(); conn.close()
+    conn.execute("UPDATE predictions SET oc_return = 0.01 WHERE code = 'A'"); conn.commit(); conn.close()
     update_miss_reviews(db)
     conn = sqlite3.connect(db)
-    assert conn.execute("SELECT COUNT(*) FROM miss_reviews").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM miss_reviews").fetchone()[0] == 1
     conn.close()
 
 
