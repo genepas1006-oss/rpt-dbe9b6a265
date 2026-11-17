@@ -63,14 +63,17 @@ def _stats_lines(stats: WinRateStats, market: MarketOrderStats | None = None) ->
     return lines
 
 
-def _score_effect_lines(effect: ScoreEffect | None) -> list[str]:
+def _score_effect_lines(effect: ScoreEffect | None, label: str = "参考・指値で約定した場合") -> list[str]:
     """TOP5と同日の全銘柄平均の差。優位性の証明ではなく、スコアの効果の目安として出す。"""
     if effect is None:
         return []
     return [
-        f"- 全銘柄平均との差（スコアの効果の目安・指値で約定した場合）: {effect.excess * 100:+.2f}%"
+        f"- 全銘柄平均との差（{label}）: {effect.excess * 100:+.2f}%"
         f"（TOP5 {effect.top_avg * 100:+.2f}% / 全銘柄 {effect.bench_avg * 100:+.2f}%・{effect.days}日）"
     ]
+
+
+OC_EFFECT_LABEL = "スコアの効果の目安・始値→終値"
 
 
 def _market_order_lines(stats: MarketOrderStats | None) -> list[str]:
@@ -255,6 +258,10 @@ def generate_report(
     exp_sell_exit: list[ExitStats] | None = None,
     exp_buy_market: MarketOrderStats | None = None,
     exp_sell_market: MarketOrderStats | None = None,
+    buy_effect_oc: ScoreEffect | None = None,
+    sell_effect_oc: ScoreEffect | None = None,
+    exp_buy_effect_oc: ScoreEffect | None = None,
+    exp_sell_effect_oc: ScoreEffect | None = None,
     buy_payoff: PayoffStats | None = None,
     sell_payoff: PayoffStats | None = None,
     index_return: float | None = None,
@@ -271,6 +278,7 @@ def generate_report(
         "## デモ検証成績（買い・現時点までの累計）",
         *_stats_lines(buy_stats, buy_market),
         *_payoff_lines(buy_payoff),
+        *_score_effect_lines(buy_effect_oc, OC_EFFECT_LABEL),
         *_score_effect_lines(buy_effect),
         *_market_order_lines(buy_market),
         *_exit_lines(buy_exit),
@@ -278,6 +286,7 @@ def generate_report(
         "## デモ検証成績（売り・現時点までの累計）",
         *_stats_lines(sell_stats, sell_market),
         *_payoff_lines(sell_payoff),
+        *_score_effect_lines(sell_effect_oc, OC_EFFECT_LABEL),
         *_score_effect_lines(sell_effect),
         *_market_order_lines(sell_market),
         *_exit_lines(sell_exit),
@@ -308,15 +317,16 @@ def generate_report(
 
     # テスト枠（値動き重視・試験運用）。本番の成績・仮想資金には含めない
     if exp_buy_candidates or exp_sell_candidates:
-        for label, stats, effect, exits, mkt in (
-            ("買い", exp_buy_stats, exp_buy_effect, exp_buy_exit, exp_buy_market),
-            ("売り", exp_sell_stats, exp_sell_effect, exp_sell_exit, exp_sell_market),
+        for label, stats, effect, exits, mkt, effect_oc in (
+            ("買い", exp_buy_stats, exp_buy_effect, exp_buy_exit, exp_buy_market, exp_buy_effect_oc),
+            ("売り", exp_sell_stats, exp_sell_effect, exp_sell_exit, exp_sell_market, exp_sell_effect_oc),
         ):
             if stats is not None:
                 lines += [
                     "",
                     f"## テスト枠の成績（{label}・値動き重視）",
                     *_stats_lines(stats, mkt),
+                    *_score_effect_lines(effect_oc, OC_EFFECT_LABEL),
                     *_score_effect_lines(effect),
                     *_exit_lines(exits),
                 ]

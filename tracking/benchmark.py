@@ -30,6 +30,17 @@ CREATE TABLE IF NOT EXISTS benchmarks (
 """
 
 
+OC_SCHEMA = """
+CREATE TABLE IF NOT EXISTS benchmarks_oc (
+    prediction_date TEXT NOT NULL,
+    side TEXT NOT NULL,
+    avg_return REAL NOT NULL,
+    stock_count INTEGER NOT NULL,
+    PRIMARY KEY (prediction_date, side)
+);
+"""
+
+
 @dataclass(frozen=True)
 class UniverseReturn:
     avg_return: float
@@ -63,9 +74,79 @@ def compute_universe_return(
     return UniverseReturn(sum(returns) / len(returns), len(returns), universe)
 
 
+def compute_universe_oc_return(
+    side: Side, bars_by_code: dict[str, list[DailyBar]], prediction_date: date
+) -> tuple[float, int] | None:
+    """予測日の翌営業日の、全銘柄の始値→終値の平均リターン（売りは符号を反転）と銘柄数（2026-11-17承認・段階C）。
+
+    予測日の足と次の足がある銘柄が対象。次の足の始値が0以下の銘柄は除く。
+    """
+    returns: list[float] = []
+    for bars in bars_by_code.values():
+        idx = next((i for i, b in enumerate(bars) if b.trade_date == prediction_date), None)
+        if idx is None or idx + 1 >= len(bars):
+            continue
+        nb = bars[idx + 1]
+        if nb.open <= 0:
+            continue
+        returns.append((nb.open - nb.close) / nb.open if side == "sell" else (nb.close - nb.open) / nb.open)
+    if not returns:
+        return None
+    return sum(returns) / len(returns), len(returns)
+
+
+def compute_missing_oc_benchmarks(db_path: str, bars_by_code: dict[str, list[DailyBar]]) -> int:
+    """答え合わせ済みの予測日のうち、始値→終値の全銘柄平均が未記録の（日, 方向）を計算して保存する。件数を返す。"""
+    init_benchmarks(db_path)
+    conn = sqlite3.connect(db_path)
+    try:
+        todo = conn.execute(
+            "SELECT DISTINCT p.prediction_date, p.side FROM predictions p "
+            "LEFT JOIN benchmarks_oc b ON b.prediction_date = p.prediction_date AND b.side = p.side "
+            "WHERE p.evaluated = 1 AND b.prediction_date IS NULL"
+        ).fetchall()
+        saved = 0
+        for pred_date, side in todo:
+            res = compute_universe_oc_return(side, bars_by_code, date.fromisoformat(pred_date))
+            if res is None:
+                continue
+            conn.execute("INSERT OR REPLACE INTO benchmarks_oc VALUES (?, ?, ?, ?)", (pred_date, side, res[0], res[1]))
+            saved += 1
+        conn.commit()
+        return saved
+    finally:
+        conn.close()
+
+
+def get_score_effect_oc(db_path: str, side: Side, variant: str = "main") -> "ScoreEffect | None":
+    """TOP5の始値→終値の平均と、同日の全銘柄の始値→終値の平均の差（日ごとの差の平均）。"""
+    init_benchmarks(db_path)
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT p.prediction_date, AVG(p.oc_return), b.avg_return FROM predictions p "
+            "JOIN benchmarks_oc b ON b.prediction_date = p.prediction_date AND b.side = p.side "
+            "WHERE p.evaluated = 1 AND p.data_anomaly = 0 AND p.variant = ? AND p.oc_return IS NOT NULL AND p.side = ? "
+            "GROUP BY p.prediction_date",
+            (variant, side),
+        ).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return None
+    n = len(rows)
+    return ScoreEffect(
+        days=n,
+        top_avg=sum(r[1] for r in rows) / n,
+        bench_avg=sum(r[2] for r in rows) / n,
+        excess=sum(r[1] - r[2] for r in rows) / n,
+    )
+
+
 def init_benchmarks(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     try:
+        conn.execute(OC_SCHEMA)
         conn.execute(SCHEMA)
         conn.commit()
     finally:
