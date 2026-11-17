@@ -148,7 +148,7 @@ def _parse_previous(body: str) -> ParsedPrevious | None:
             parts = [p.strip() for p in line.removeprefix("- 対象:").split(" | ", 1)]
             heading = parts[0]
             counts = parts[1].split("・") if len(parts) > 1 else []
-        elif line.startswith(("- 約定:", "- 損益:", "- 補足:")):
+        elif line.startswith(("- 約定:", "- 損益:", "- 補足:", "- 指値の場合:", "- 損益（始値基準）:")):
             if details:
                 details[-1].append(line.removeprefix("- ").strip())
         elif line.startswith("- "):

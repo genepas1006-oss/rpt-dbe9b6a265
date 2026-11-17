@@ -131,8 +131,8 @@ def _previous_section(side_label: str, prev: PreviousResults | None) -> list[str
         f"- 対象: {prev.prediction_date.isoformat()}予測 → {prev.target_date.isoformat()} | {summary}",
     ]
     for i in prev.items:
-        ret = "-" if i.result_return is None else f"{i.result_return * 100:+.2f}%"
-        oc = "-" if i.oc_return is None else f"{i.oc_return * 100:+.2f}%"
+        ret = "-" if i.oc_return is None else f"{i.oc_return * 100:+.2f}%"  # 始値→終値（2026-11-13 段階B）
+        oc = i.limit_text  # 指値で約定した場合（参考）
         move = (
             "-"
             if i.target_open is None or i.target_close is None

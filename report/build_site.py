@@ -913,7 +913,10 @@ def _previous_block(prev: ParsedPrevious | None) -> str:
         cls = _status_class(i.status)
         has_return = i.result_return != "-"
         ret = html.escape(i.result_return) if has_return else "約定なし" if i.status == "不成立" else "-"
-        sub_ret = f"成行 {html.escape(i.market_return)}" if i.market_return != "-" else ""
+        sub_ret = (
+            html.escape(i.market_return) if i.market_return.startswith("指値")
+            else f"成行 {html.escape(i.market_return)}" if i.market_return != "-" else ""
+        )
         move = f" ／ {html.escape(i.move)}" if i.move != "-" else ""
         rows.append(
             f'<div class="prev-row {cls}"><span class="rk">{html.escape(i.rank.removesuffix("位"))}</span>'
@@ -1115,7 +1118,7 @@ HOWTO_HTML = """<details class="howto"><summary>スコアと成績の見方</sum
 <li>方向の的中率: 予測日の終値から見て、予想した向きに動いた割合です。</li>
 </ul>
 <h3>前営業日の結果の的中・不的中</h3>
-<p>この欄は、指値で約定した場合の損益で判定しています（約定しなければ「不成立」）。成績欄の見出しとは基準が違います。今後、始値基準にそろえる予定です。仮想資金・全銘柄平均との差・利確損切りの試算も、指値で約定した場合の数字です。</p>
+<p>この欄も、成績欄の見出しと同じく、始値→終値の方向で判定します（指値が不成立だった予想も数えます。同値は外れです）。指値で約定した場合の結果は、各行の小さな注記に出します。「結果の内訳」を開くと、指値の場合・始値基準の損益・日中の最大含み益と最大含み損が読めます。仮想資金・全銘柄平均との差・利確損切りの試算は、まだ指値で約定した場合の数字です。</p>
 <h3>平均利益・平均損失・損益比</h3>
 <p>勝率だけでは分からない勝ち負けの形です（始値→終値のリターンで計算）。損益比は「勝ったときの平均利益 ÷ 負けたときの平均損失」で、1より小さくても、勝率が高ければ全体ではプラスになることがあります。</p>
 </details>"""

@@ -53,9 +53,11 @@ def _setup(tmp_path):
 def test_previous_results_statuses_order_and_counts(tmp_path):
     prev = get_previous_results(_setup(tmp_path), "buy", D_TODAY)
     assert prev.prediction_date == D_PREV and prev.target_date == T_PREV
+    # 始値→終値の方向で判定（2026-11-13 段階B）。C は指値は不成立だが、始値→終値は同値（0%）なので不的中
     assert [(i.rank, i.code, i.status) for i in prev.items] == [
-        (1, "A", "win"), (2, "B", "loss"), (3, "C", "unfilled"), (4, "D", "pending")]
-    assert prev.counts() == {"win": 1, "loss": 1, "unfilled": 1, "pending": 1}
+        (1, "A", "win"), (2, "B", "loss"), (3, "C", "loss"), (4, "D", "pending")]
+    assert [i.limit_status for i in prev.items] == ["win", "loss", "unfilled", "pending"]
+    assert prev.counts() == {"win": 1, "loss": 2, "pending": 1}
 
 
 def test_previous_results_values(tmp_path):
@@ -113,10 +115,10 @@ def _report(tmp_path, with_sell=True):
 def test_report_text_format(tmp_path):
     text = _report(tmp_path)
     assert "## 前営業日の結果（買い）" in text
-    assert "- 対象: 2026-11-05予測 → 2026-11-06 | 的中1・不的中1・不成立1・未確定1" in text
-    assert "- 1位 | 三菱商事（A） | 的中 | 995.0円（約定990.0円） | +1.52% | 始値990.0円 → 終値1,005.0円 | +1.52%" in text
-    assert "- 2位 | nB（B） | 不的中 | 995.0円 | -0.50% | 始値1,000.0円 → 終値990.0円 | -1.00%" in text
-    assert "- 3位 | nC（C） | 不成立 | 995.0円 | - | 始値1,000.0円 → 終値1,000.0円 | +0.00%" in text
+    assert "- 対象: 2026-11-05予測 → 2026-11-06 | 的中1・不的中2・未確定1" in text
+    assert "- 1位 | 三菱商事（A） | 的中 | 995.0円（約定990.0円） | +1.52% | 始値990.0円 → 終値1,005.0円 | 指値 +1.52%（約定）" in text
+    assert "- 2位 | nB（B） | 不的中 | 995.0円 | -1.00% | 始値1,000.0円 → 終値990.0円 | 指値 -0.50%（約定）" in text
+    assert "- 3位 | nC（C） | 不的中 | 995.0円 | +0.00% | 始値1,000.0円 → 終値1,000.0円 | 指値 不成立" in text
     assert "- 4位 | nD（D） | 未確定 | 995.0円 | - | - | -" in text
     # 前日の結果は、成績の後・本日の候補の前
     assert text.index("## デモ検証成績（売り") < text.index("## 前営業日の結果（買い）") < text.index("## 本日の買い候補")
@@ -131,9 +133,10 @@ def test_parse_roundtrip(tmp_path):
     parsed = parse_report(_report(tmp_path))
     prev = parsed.buy_previous
     assert prev.heading == "2026-11-05予測 → 2026-11-06"
-    assert prev.counts == ["的中1", "不的中1", "不成立1", "未確定1"]
-    assert [(i.rank, i.status) for i in prev.items] == [("1位", "的中"), ("2位", "不的中"), ("3位", "不成立"), ("4位", "未確定")]
-    assert prev.items[0].name == "三菱商事（A）" and prev.items[0].market_return == "+1.52%"
+    assert prev.counts == ["的中1", "不的中2", "未確定1"]
+    assert [(i.rank, i.status) for i in prev.items] == [("1位", "的中"), ("2位", "不的中"), ("3位", "不的中"), ("4位", "未確定")]
+    assert prev.items[0].name == "三菱商事（A）" and prev.items[0].result_return == "+1.52%"
+    assert prev.items[0].market_return == "指値 +1.52%（約定）" and prev.items[2].market_return == "指値 不成立"
     assert prev.items[3].move == "-" and prev.items[3].result_return == "-"
     assert parsed.sell_previous.items[0].status == "未確定"
 
@@ -154,13 +157,14 @@ def _page(tmp_path):
 def test_site_scoreboard_rows_and_order(tmp_path):
     page = _page(tmp_path)
     assert '<span class="prev-title">前営業日の結果</span><span class="prev-sub">2026-11-05予測 → 2026-11-06</span>' in page
-    for chip in ('<span class="st win">的中 1</span>', '<span class="st loss">不的中 1</span>',
-                 '<span class="st nofill">不成立 1</span>', '<span class="st pending">未確定 1</span>'):
+    for chip in ('<span class="st win">的中 1</span>', '<span class="st loss">不的中 2</span>',
+                 '<span class="st pending">未確定 1</span>'):
         assert chip in page
+    assert '<span class="st nofill">' not in page  # 不成立は状態ではなく行の注記（段階B）
     assert '<div class="prev-row win"><span class="rk">1</span><span class="st win">的中</span>' in page
     assert "<b>三菱商事（A）</b><small>指値995.0円（約定990.0円） ／ 始値990.0円 → 終値1,005.0円</small>" in page
-    assert '<div class="pr">+1.52%<small>成行 +1.52%</small></div>' in page
-    assert '<div class="pr">約定なし<small>成行 +0.00%</small></div>' in page   # 不成立でも成行の結果は見える
+    assert '<div class="pr">+1.52%<small>指値 +1.52%（約定）</small></div>' in page
+    assert '<div class="pr">+0.00%<small>指値 不成立</small></div>' in page   # 不成立でも始値→終値の結果で判定
     assert '<div class="pr">-<small></small></div>' in page                       # 未確定
     # 各側の先頭（成績タイルより前）にある
     buy_part = page.split('id="side-buy"')[1].split('id="side-sell"')[0]
@@ -211,7 +215,7 @@ def test_fill_price_gap_and_limit():
     from tracking.previous import PreviousItem
 
     def item(side, entry, open_, status="win"):
-        return PreviousItem(1, "A", "a", entry, status, 0.01, open_, 0.0, None, side=side)
+        return PreviousItem(1, "A", "a", entry, "win", 0.01, open_, 0.0, None, side=side, limit_status=status)
 
     assert item("sell", 3878.3, 3999.0).fill_price == 3999.0  # 売り: 寄りが高い→寄り値で約定
     assert item("sell", 1972.8, 1962.0).fill_price == 1972.8  # 売り: 寄りが低い→指値で約定
@@ -219,3 +223,45 @@ def test_fill_price_gap_and_limit():
     assert item("buy", 995.0, 1000.0).fill_price == 995.0
     assert item("buy", 995.0, None).fill_price == 995.0
     assert item("buy", 995.0, 990.0, status="unfilled").fill_price is None
+
+
+# ---------------- 段階B（2026-11-13承認）の手計算ケース ----------------
+def test_stage_b_hand_calc_statuses_and_rows(tmp_path):
+    db = str(tmp_path / "b.db")
+    init_db(db)
+    codes = ["C1", "C2", "C3", "C4", "C5", "C6"]
+    prices = [995.0, 2000.0, 1313.4, 500.0, 800.0, 900.0]
+    save_predictions(db, D_PREV, T_PREV, [_cand(c, price=p) for c, p in zip(codes, prices)])
+    _eval(db, "C1", D_PREV, 990, 985, 1010, 1005)      # 始値基準 +1.52% 的中 / 指値は990で約定 +1.52%
+    _eval(db, "C2", D_PREV, 2010, 1995, 2012, 2005)    # 始値基準 -0.25% 不的中 / 指値2,000で約定 +0.25%
+    _eval(db, "C3", D_PREV, 1350, 1340, 1400, 1391.5)  # 始値基準 +3.07% 的中 / 指値は不成立
+    _eval(db, "C4", D_PREV, 500, 495, 505, 500)        # 同値 0% 不的中
+    # C5 は未評価 → 未確定。C6 は答え合わせ済みだが始値の記録なし → 未確定
+    record_evaluation(db, _pid(db, "C6", D_PREV), target_low=895, target_high=910, target_close=905,
+                      actual_date=T_PREV, target_open=None, market_return=0.0)
+    prev = get_previous_results(db, "buy", D_TODAY)
+    assert [i.status for i in prev.items] == ["win", "loss", "win", "loss", "pending", "pending"]
+    assert prev.counts() == {"win": 2, "loss": 2, "pending": 2}
+    c1, c2, c3 = prev.items[:3]
+    assert c1.oc_return == pytest.approx(15 / 990) and c2.oc_return == pytest.approx(-5 / 2010)
+    assert c3.oc_return == pytest.approx(41.5 / 1350) and round(c3.oc_return * 100, 2) == 3.07
+    assert (c1.limit_text, c2.limit_text, c3.limit_text) == ("指値 +1.52%（約定）", "指値 +0.25%（約定）", "指値 不成立")
+    text = generate_report(D_TODAY, date(2026, 11, 9), [], [], STATS, STATS, buy_previous=prev)
+    assert "的中2・不的中2・未確定2" in text and "不成立" in text and "不成立1" not in text
+    # 最大含み益・最大含み損は始値を基準にする（C1: 始値990、高値1010、安値985）
+    assert "日中の最大含み益+2.02%・最大含み損-0.51%（始値を基準、日足から。どちらが先かは分かりません）" in "".join(c1.explain_lines())
+    # C6: 始値がない場合は、始値基準では判定できない旨を出す
+    assert any("始値の記録がないため" in l for l in prev.items[5].explain_lines())
+
+
+def test_stage_b_sell_example_lines():
+    from tracking.previous import PreviousItem
+
+    it = PreviousItem(1, "5233", "太平洋セメント", 3878.3, "win", (3999 - 3931) / 3999, 3999.0, 3931.0, (3999 - 3931) / 3999,
+                      side="sell", pred_close=3858.9, target_high=4010.0, target_low=3920.0, limit_status="win")
+    lines = it.explain_lines()
+    assert lines[0] == "指値の場合: 始値3,999.0円が指値3,878.3円より高いため、始値3,999.0円で売りが成立（有利）"
+    assert lines[1] == "損益（始値基準）: 始値3,999.0円で売り → 終値3,931.0円。1株あたり68.0円下がったので+1.70%の利益"
+    assert lines[2].startswith("補足: 日中の最大含み益+1.98%・最大含み損-0.28%（始値を基準、日足から。どちらが先かは分かりません）")
+    assert "方向の的中率（予測日終値比）では外れ扱いです" in lines[2]  # 3,931 > 予測日終値3,858.9
+    assert it.note == "寄りのギャップで予測日終値比は逆方向"

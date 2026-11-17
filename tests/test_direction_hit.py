@@ -44,14 +44,14 @@ def db(tmp_path):
 
 
 def _ins(db, code, side="buy", pc=1000.0, entry=995.0, close=1000.0, filled=1, win=None, ret=None, anomaly=0,
-         pdate="2026-11-09", open_=None):
+         pdate="2026-11-09", open_=None, oc=None):
     conn = sqlite3.connect(db)
     conn.execute(
         "INSERT INTO predictions (prediction_date, code, name, side, total_score, technical_score, earnings_score, "
         "entry_price, reasons, target_date, evaluated, filled, target_low, target_high, target_close, target_open, "
-        "result_return, is_win, created_at, pred_close, data_anomaly) VALUES (?, ?, ?, ?, 1, 1, 0, ?, '[]', "
-        "'2026-11-10', 1, ?, 1, 99999, ?, ?, ?, ?, 'now', ?, ?)",
-        (pdate, code, code, side, entry, filled, close, open_, ret, win, pc, anomaly),
+        "result_return, is_win, created_at, pred_close, data_anomaly, oc_return) VALUES (?, ?, ?, ?, 1, 1, 0, ?, '[]', "
+        "'2026-11-10', 1, ?, 1, 99999, ?, ?, ?, ?, 'now', ?, ?, ?)",
+        (pdate, code, code, side, entry, filled, close, open_, ret, win, pc, anomaly, oc),
     )
     conn.commit(); conn.close()
 
@@ -78,13 +78,14 @@ def test_report_line_for_direction_rate():
 
 def test_d7_note_only_for_win_with_wrong_direction(db):
     # 売り: 的中なのに方向が逆（デンカ）/ 的中で方向も合う（東急不動産）/ 不的中 / 不成立
-    _ins(db, "DENKA", "sell", pc=2889.4, entry=2903.9, close=2932.5, win=1, ret=0.02005, open_=2992.5)
-    _ins(db, "TOKYU", "sell", pc=1196.0, entry=1202.0, close=1195.0, win=1, ret=0.0071, open_=1203.5)
-    _ins(db, "LOSS", "sell", pc=1000.0, entry=1005.0, close=1030.0, win=0, ret=-0.0249)
-    _ins(db, "UNF", "sell", pc=1000.0, entry=1005.0, close=990.0, filled=0)
+    # 段階B（2026-11-13）: 始値→終値で的中なのに、予測日終値から見ると方向が逆の行に注記（寄りのギャップ）
+    _ins(db, "DENKA", "sell", pc=2889.4, entry=2903.9, close=2932.5, win=1, ret=0.02005, open_=2992.5, oc=(2992.5 - 2932.5) / 2992.5)
+    _ins(db, "TOKYU", "sell", pc=1196.0, entry=1202.0, close=1195.0, win=1, ret=0.0071, open_=1203.5, oc=(1203.5 - 1195.0) / 1203.5)
+    _ins(db, "LOSS", "sell", pc=1000.0, entry=1005.0, close=1030.0, win=0, ret=-0.0249, open_=1005.0, oc=-0.0249)
+    _ins(db, "UNF", "sell", pc=1000.0, entry=1005.0, close=990.0, filled=0, open_=1000.0, oc=0.01)
     prev = get_previous_results(db, "sell", date(2026, 11, 10))
     notes = {i.name: i.note for i in prev.items}
-    assert notes == {"DENKA": "ギャップで有利に約定", "TOKYU": "", "LOSS": "", "UNF": ""}
+    assert notes == {"DENKA": "寄りのギャップで予測日終値比は逆方向", "TOKYU": "", "LOSS": "", "UNF": ""}
 
 
 def test_report_site_and_glossary_show_note(db, tmp_path):
@@ -93,15 +94,15 @@ def test_report_site_and_glossary_show_note(db, tmp_path):
     from report.generate_report import generate_report
     from tracking.predictions_db import WinRateStats
 
-    _ins(db, "DENKA", "sell", pc=2889.4, entry=2903.9, close=2932.5, win=1, ret=0.02005, open_=2992.5)
+    _ins(db, "DENKA", "sell", pc=2889.4, entry=2903.9, close=2932.5, win=1, ret=0.02005, open_=2992.5, oc=(2992.5 - 2932.5) / 2992.5)
     st = WinRateStats(1, 1, 1, 1.0, direction_total=1, direction_hits=0)
     cand = RankedCandidate(code="6954", name="ファナック", total_score=3, technical_score=2, earnings_score=1,
                            volume_ratio=2.0, entry_price=5608.8, side="sell", day_close=5600.0)
     text = generate_report(date(2026, 11, 10), date(2026, 11, 11), [], [cand], st, st,
                            sell_previous=get_previous_results(db, "sell", date(2026, 11, 10)))
-    assert " | ギャップで有利に約定" in text and "- 方向の的中率（予測日終値比）: 0.0%（0/1件）" in text
+    assert " | 寄りのギャップで予測日終値比は逆方向" in text and "- 方向の的中率（予測日終値比）: 0.0%（0/1件）" in text
     reports = tmp_path / "reports"; reports.mkdir()
     (reports / "2026-11-10.md").write_text(text, encoding="utf-8")
     page = build_index(reports, tmp_path / "docs", "x").read_text(encoding="utf-8")
-    assert '<small class="pn-note">ギャップで有利に約定</small>' in page
-    assert "<dt>方向の的中率</dt>" in page and "<dt>ギャップで有利に約定</dt>" in page
+    assert '<small class="pn-note">寄りのギャップで予測日終値比は逆方向</small>' in page
+    assert "<dt>方向の的中率</dt>" in page and "<dt>ギャップ</dt>" in page
