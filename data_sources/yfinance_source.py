@@ -69,6 +69,23 @@ class YFinanceSource(DataSource):
                 continue
         return bars
 
+    def get_intraday_history(self, code: str, period: str = "60d") -> list[IntradayBar]:
+        """5分足の直近の履歴（日付をまたぐ）。取得できなければ空。時間帯別の的中率の補完用。"""
+        symbol = yfinance_symbol(code)
+        try:
+            hist = yf.Ticker(symbol).history(period=period, interval="5m")
+        except Exception:  # noqa: BLE001
+            logger.warning("5分足の履歴の取得に失敗: %s", symbol, exc_info=True)
+            return []
+        bars = []
+        for idx, row in hist.iterrows():
+            try:
+                bars.append(IntradayBar(idx.to_pydatetime().astimezone(JST), float(row["Open"]), float(row["High"]),
+                                        float(row["Low"]), float(row["Close"]), int(row["Volume"])))
+            except (KeyError, ValueError, TypeError):
+                continue
+        return bars
+
     def get_symbol_hourly_bars(self, symbol: str, period: str = "730d", retries: int = 3) -> list[HourBar]:
         """先物などの1時間足（日本時間）。取得に失敗（レート制限など）した場合は少し待って再試行し、だめなら空を返す。"""
         for attempt in range(retries):

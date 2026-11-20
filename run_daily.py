@@ -25,6 +25,7 @@ from tracking.benchmark import (
     compute_missing_benchmarks, compute_missing_oc_benchmarks, get_score_effect, get_score_effect_oc,
 )
 from tracking.bars_5m import save_5m_bars
+from tracking.session_stats import compute_session_table, ensure_5m_history, prediction_days, save_session_stats
 from tracking.exit_sim import get_exit_stats
 from tracking.payoff import get_payoff_stats
 from tracking.evaluate import evaluate_pending_predictions
@@ -212,6 +213,12 @@ def run(prediction_date: date) -> Path:
         print(f"[bars_5m] {saved_n}銘柄を保存しました: {saved_path}")
     except Exception as e:  # noqa: BLE001
         print(f"[bars_5m] 5分足の保存に失敗しました: {e}")
+
+    try:  # 前場・後場の時間帯別の的中率（足りない日の5分足は、データ元の履歴から補う。失敗しても続ける）
+        ensure_5m_history(source, [code for code, _ in NIKKEI225], prediction_days(DB_PATH))
+        save_session_stats(REPORTS_DIR / "session_stats.json", compute_session_table(DB_PATH), datetime.now().strftime("%Y-%m-%d %H:%M"))
+    except Exception as e:  # noqa: BLE001
+        print(f"[session_stats] 時間帯別の的中率の集計に失敗しました: {e}")
 
     buy_stats = get_win_rate_stats(DB_PATH, side="buy")
     sell_stats = get_win_rate_stats(DB_PATH, side="sell")

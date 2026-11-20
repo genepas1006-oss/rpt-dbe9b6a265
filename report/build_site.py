@@ -30,6 +30,7 @@ from report.forecast_set import ForecastSet, evening_set, fmt_md_hm, to_json_dic
 from report.intraday_report import BASIS, RULE, ParsedIntraday, ParsedPick, parse_intraday_report
 from report.glossary import terms_in
 from report.pnl_calendar import CAL_SCRIPT, CAL_STYLE, render_calendar
+from tracking.session_stats import load_session_stats
 from tracking.trade_import import load_daily_pnl
 from report.md_to_html import color_deltas
 from report.premarket import Premarket, load_premarket
@@ -241,6 +242,17 @@ h3 { font-size: 0.9rem; margin: 1.2em 0 0.5em; color: var(--text-muted); }
 .env-row .tag { grid-column: 2; grid-row: 1 / span 2; justify-self: end; }
 .env-v.small { font-size: 0.85rem; font-weight: 600; }
 .env-src { font-size: 0.72rem; color: var(--text-muted); grid-column: 1 / -1; }
+.sess { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 12px 10px; margin: 0 0 14px; }
+.sess-title { font-weight: 800; font-size: 0.95rem; color: var(--ink); }
+.sess-table { width: 100%; border-collapse: collapse; margin-top: 8px; table-layout: fixed; font-size: 0.78rem; }
+.sess-table th, .sess-table td { border-top: 1px solid var(--border); padding: 6px 3px; text-align: center; vertical-align: middle; }
+.sess-table thead th { border-top: none; font-size: 0.7rem; color: var(--text-muted); padding: 3px; }
+.sess-table tbody th { text-align: left; font-size: 0.74rem; width: 28%; color: var(--ink); }
+.sess-table td b { display: block; font-size: 0.9rem; color: var(--ink); }
+.sess-table td small { display: block; font-size: 0.62rem; color: var(--text-muted); }
+.sess-table td.na { color: var(--text-muted); font-size: 0.7rem; }
+.sess-table tr.base th, .sess-table tr.base td { color: var(--text-muted); font-style: italic; background: var(--surface-2); }
+.sess-note { margin: 8px 0 0; font-size: 0.7rem; color: var(--text-muted); line-height: 1.5; }
 .env-more { margin: 8px 0 0; font-size: 0.75rem; color: var(--text-muted); }
 .env-more summary { cursor: pointer; }
 .env-more p { margin: 4px 0 0; }
@@ -1110,6 +1122,39 @@ def _intraday_block(ir: ParsedIntraday, fset: ForecastSet, set_id: str) -> str:
     )
 
 
+def _session_cell(c: dict | None) -> str:
+    if c is None:
+        return '<td class="na">対象外</td>'
+    if not c.get("n"):
+        return '<td class="na">－</td>'
+    rate = c["wins"] / c["n"] * 100
+    return f'<td><b>{rate:.1f}%</b><small>{c["wins"]}/{c["n"]}件</small></td>'
+
+
+def _session_block(stats: dict | None) -> str:
+    """前場・後場の時間帯別の的中率（試験的・同じ基準）。データが無ければ出さない。"""
+    if not stats:
+        return ""
+    body = ""
+    for r in stats["rows"]:
+        cls = ' class="base"' if r.get("variant") == "all" else ""
+        body += (
+            f"<tr{cls}><th>{html.escape(r['label'])}</th>"
+            + _session_cell(r["buy"]["am"]) + _session_cell(r["buy"]["pm"])
+            + _session_cell(r["sell"]["am"]) + _session_cell(r["sell"]["pm"]) + "</tr>"
+        )
+    return (
+        '<section class="sess"><div class="sess-head"><span class="sess-title">前場・後場の時間帯別の的中率（試験的）</span></div>'
+        '<table class="sess-table"><thead><tr><th rowspan="2">予想</th><th colspan="2">買い</th><th colspan="2">売り</th></tr>'
+        "<tr><th>前場</th><th>後場</th><th>前場</th><th>後場</th></tr></thead>"
+        f"<tbody>{body}</tbody></table>"
+        '<p class="sess-note">すべての予想を、その時間帯の始値→終値の方向（買いは上昇、売りは下落、同値は外れ）で、同じ基準で測っています。'
+        "前場は9:00〜11:30、後場は12:30〜15:30です。昼の予想の前場は、前場の値動きで選んでいるため対象外です。"
+        "全銘柄（参考）は、その時間帯に上がった（売りは下がった）銘柄の割合で、相場全体の流れの目安です。"
+        "件数が少ないうちは、差が偶然の範囲のことがあります。</p></section>"
+    )
+
+
 HOWTO_HTML = """<details class="howto"><summary>スコアと成績の見方</summary>
 <h3>スコアとは</h3>
 <p>出来高・当日の騰落率・引け位置（値動きと出来高で最大5点）と、決算前後の過去パターン（最大2点）に、いくつ当てはまったかを足した点数です（7点満点）。各候補をタップすると、項目ごとの内訳が見られます。</p>
@@ -1183,6 +1228,7 @@ def build_index(
         except ValueError:
             latest_date = None
     env_html = _environment_block(premarket, latest_date, market_gaps)
+    session_html = _session_block(load_session_stats(reports_dir / "session_stats.json"))
     pnl_html = render_calendar(load_daily_pnl(reports_dir.parent / "trades" / "daily_pnl.json"))
     history_by_month: dict[str, list[str]] = defaultdict(list)
     page_sets: list[tuple[str, ForecastSet]] = []
@@ -1263,6 +1309,7 @@ def build_index(
 {pnl_html}
 {_fund_block(fund)}
 {env_html}
+{session_html}
 {HOWTO_HTML}
 {latest_html}
 {_glossary_block(_fund_block(fund), env_html, latest_html)}
