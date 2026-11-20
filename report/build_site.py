@@ -29,6 +29,8 @@ from analysis.market_calendar import next_business_day
 from report.forecast_set import ForecastSet, evening_set, fmt_md_hm, to_json_dict
 from report.intraday_report import BASIS, RULE, ParsedIntraday, ParsedPick, parse_intraday_report
 from report.glossary import terms_in
+from report.pnl_calendar import CAL_SCRIPT, CAL_STYLE, render_calendar
+from tracking.trade_import import load_daily_pnl
 from report.md_to_html import color_deltas
 from report.premarket import Premarket, load_premarket
 from tracking.virtual_fund import VirtualFund
@@ -476,6 +478,7 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
   .hero h1 { font-size: 1.65rem; }
 }
 """
+_STYLE += CAL_STYLE
 
 
 _PCT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*%")
@@ -1180,6 +1183,7 @@ def build_index(
         except ValueError:
             latest_date = None
     env_html = _environment_block(premarket, latest_date, market_gaps)
+    pnl_html = render_calendar(load_daily_pnl(reports_dir.parent / "trades" / "daily_pnl.json"))
     history_by_month: dict[str, list[str]] = defaultdict(list)
     page_sets: list[tuple[str, ForecastSet]] = []
 
@@ -1256,6 +1260,7 @@ def build_index(
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
 </header>
 {_banner_html()}
+{pnl_html}
 {_fund_block(fund)}
 {env_html}
 {HOWTO_HTML}
@@ -1266,6 +1271,9 @@ def build_index(
 {_fsets_json(page_sets)}
 <script>
 {_FSET_SCRIPT}
+</script>
+<script>
+{CAL_SCRIPT}
 </script>
 <script>
 (function () {{
