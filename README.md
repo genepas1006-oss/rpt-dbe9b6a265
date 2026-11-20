@@ -173,7 +173,7 @@ python scripts/seed_state.py
 - `run_daily.py` 実行時に `reports/*.md` から `docs/index.html` を生成し、GitHubへ自動push する
   ようにした。公開先はGitHub Pages: **https://p1cotaron252543.github.io/rpt-dbe9b6a265/**
   （スマホ等からもログイン不要で閲覧可能）。
-- このリポジトリ（`genepas1006-oss/rpt-dbe9b6a265`）は推測困難なランダム名の**公開(public)**
+- このリポジトリ（`rpt-dbe9b6a265`）は推測困難なランダム名の**公開(public)**
   リポジトリ。個人の株予測データを含むため、URLを他人に教えないこと。
 - 今は自動実行していないため、ページを更新したい時は以下を手動実行する
   （PCがオンラインである必要あり。`git push`まで自動で行われる）。

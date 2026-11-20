@@ -321,6 +321,29 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 @media (min-width: 420px) {
   .hero h1 { font-size: 1.65rem; }
 }
+
+.pnl-cal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 12px 10px; margin: 0 0 14px; }
+.pnl-cal .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.pnl-cal .cal-h-title { font-weight: 800; font-size: 0.95rem; color: var(--ink); }
+.pnl-cal .cal-nav button { border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); border-radius: 8px; width: 36px; height: 30px; margin-left: 6px; font-size: 0.8rem; cursor: pointer; }
+.pnl-cal .cal-month { display: none; } .pnl-cal .cal-month.active { display: block; }
+.pnl-cal .cal-title { margin: 4px 0 2px; font-size: 1rem; color: var(--ink); }
+.pnl-cal .cal-sum { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin: 0 0 8px; font-size: 0.82rem; color: var(--text-muted); }
+.pnl-cal .cal-sum b { font-size: 1.15rem; }
+.pnl-cal .plus { color: var(--win); } .pnl-cal .minus { color: var(--loss); } .pnl-cal .zero { color: var(--idle); }
+.pnl-cal .cal-table { width: 100%; border-collapse: separate; border-spacing: 2px; table-layout: fixed; }
+.pnl-cal .cal-table th:last-child, .pnl-cal .cal-table td.wk { width: 17%; }
+.pnl-cal .cal-table th { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); padding: 2px 0; }
+.pnl-cal .cal-table td { height: 54px; vertical-align: top; border-radius: 8px; padding: 3px 2px 3px 4px; overflow: hidden; background: var(--surface-2); position: relative; }
+.pnl-cal .cal-table td.out { background: transparent; }
+.pnl-cal .cal-table td.plus { background: var(--win-bg); } .pnl-cal .cal-table td.minus { background: var(--loss-bg); }
+.pnl-cal .cal-table .d { display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--text-muted); }
+.pnl-cal .cal-table .mk { font-style: normal; font-size: 0.7rem; font-weight: 800; }
+.pnl-cal .cal-table td.plus .mk { color: var(--win); } .pnl-cal .cal-table td.minus .mk { color: var(--loss); }
+.pnl-cal .cal-table .v { display: block; font-size: 0.66rem; font-weight: 800; line-height: 1.25; margin-top: 6px; letter-spacing: -0.02em; white-space: nowrap; }
+.pnl-cal .cal-table td.wk { background: transparent; vertical-align: middle; text-align: center; font-size: 0.72rem; font-weight: 800; border-left: 2px solid var(--border); border-radius: 0; }
+.pnl-cal .cal-note { margin: 8px 0 0; font-size: 0.7rem; color: var(--text-muted); line-height: 1.5; }
+@media (min-width: 700px) { .pnl-cal .cal-table td { height: 64px; } .pnl-cal .cal-table .v { font-size: 0.9rem; } }
 </style>
 </head>
 <body>
@@ -331,6 +354,7 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
 <p class="disclaimer">本ページは根拠付きスコアリングによる分析結果であり、翌日の値動きや勝率を保証するものではありません。実発注は行っていません（デモ検証フェーズ）。</p>
 </header>
 <div id="now-banner" class="now-banner is-none" role="status" aria-live="polite"><span id="nb-text">予想の有効時間を判定中…</span><noscript>時刻による「有効・期限切れ」の判定には JavaScript が必要です。各予想の「作成」「データ基準」「使える時間」を必ずご確認ください。</noscript></div>
+<section class="pnl-cal" id="pnl-cal"><div class="cal-head"><span class="cal-h-title">損益カレンダー</span><span class="cal-nav"><button type="button" class="cal-prev" aria-label="前の月">◀</button><button type="button" class="cal-next" aria-label="次の月">▶</button></span></div><div class="cal-month active" data-month="2026-11"><h3 class="cal-title">2026年11月</h3><p class="cal-sum"><b class="minus">合計 −15,883円</b><span>勝ち3日・負け6日</span></p><table class="cal-table"><thead><tr><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>週計</th></tr></thead><tbody><tr><td class="none"><span class="d">2</span></td><td class="none"><span class="d">3</span></td><td class="none"><span class="d">4</span></td><td class="none"><span class="d">5</span></td><td class="minus"><span class="d">6<i class="mk">▼</i></span><span class="v">−14,059</span></td><td class="wk minus">−14,059</td></tr><tr><td class="none"><span class="d">9</span></td><td class="minus"><span class="d">10<i class="mk">▼</i></span><span class="v">−22,466</span></td><td class="minus"><span class="d">11<i class="mk">▼</i></span><span class="v">−16,106</span></td><td class="minus"><span class="d">12<i class="mk">▼</i></span><span class="v">−2,825</span></td><td class="minus"><span class="d">13<i class="mk">▼</i></span><span class="v">−35,950</span></td><td class="wk minus">−77,347</td></tr><tr><td class="plus"><span class="d">16<i class="mk">▲</i></span><span class="v">+22,574</span></td><td class="plus"><span class="d">17<i class="mk">▲</i></span><span class="v">+18,470</span></td><td class="plus"><span class="d">18<i class="mk">▲</i></span><span class="v">+36,172</span></td><td class="minus"><span class="d">19<i class="mk">▼</i></span><span class="v">−1,693</span></td><td class="none"><span class="d">20</span></td><td class="wk plus">+75,523</td></tr><tr><td class="none"><span class="d">23</span></td><td class="none"><span class="d">24</span></td><td class="none"><span class="d">25</span></td><td class="none"><span class="d">26</span></td><td class="none"><span class="d">27</span></td><td class="wk none"></td></tr><tr><td class="none"><span class="d">30</span></td><td class="out"></td><td class="out"></td><td class="out"></td><td class="out"></td><td class="wk none"></td></tr></tbody></table></div><p class="cal-note">SBI証券の取引結果から集計した、実際の売買の実現損益です（信用返済・手数料込み）。返済した日に計上します。このツールの予想の成績ではありません。全期間の合計: <b>−15,883円</b></p></section>
 <section class="fund"><div class="fund-head"><span class="fund-title">仮想資金（デモ）</span><span class="fund-sub">開始 1,000,000円</span></div><div class="fund-balance">1,040,016円</div><div class="fund-stats"><div class="fund-stat"><span class="cap">前日比（11/19）</span><span class="val">+4,667円<small>+0.45%</small></span></div><div class="fund-stat"><span class="cap">開始からの損益</span><span class="val">+40,016円<small>+4.00%</small></span></div><div class="fund-stat"><span class="cap">買い・売り別の累計</span><span class="val"><small style="margin:0">買い</small> -7,319円<br><small style="margin:0">売り</small> +47,335円</span></div></div><svg class="fund-chart" viewBox="0 0 100 64" preserveAspectRatio="none" role="img" aria-label="残高の推移"><line x1="0" y1="51.41" x2="100" y2="51.41"/><polyline points="0.00,51.41 12.50,58.08 25.00,52.10 37.50,60.00 50.00,30.64 62.50,23.20 75.00,26.21 87.50,9.53 100.00,4.00"/></svg><table class="fund-days"><thead><tr><th>結果日</th><th>損益</th><th>前日比</th><th>残高</th></tr></thead><tbody><tr><td>11/19</td><td>+4,667円</td><td>+0.45%</td><td>1,040,016円</td></tr><tr><td>11/18</td><td>+14,084円</td><td>+1.38%</td><td>1,035,349円</td></tr><tr><td>11/17</td><td>-2,547円</td><td>-0.25%</td><td>1,021,265円</td></tr><tr><td>11/16</td><td>+6,286円</td><td>+0.62%</td><td>1,023,812円</td></tr><tr><td>11/13</td><td>+24,781円</td><td>+2.50%</td><td>1,017,526円</td></tr><tr><td>11/12</td><td>-6,668円</td><td>-0.67%</td><td>992,745円</td></tr><tr><td>11/11</td><td>+5,050円</td><td>+0.51%</td><td>999,414円</td></tr><tr><td>11/10</td><td>-5,636円</td><td>-0.56%</td><td>994,364円</td></tr></tbody></table><p class="fund-note">買い・売りの全候補に、毎日「残高÷10」ずつ指値で投入し、約定した分を終値で決済した場合の参考値です（不成立は現金のまま・複利）。手数料・単元株・信用取引の費用は考慮していません。実際の損益や将来の成績を保証するものではありません。</p></section>
 <section class="env"><div class="env-head"><span class="env-title">環境認識（目安）</span><span class="env-sub">2026-11-20 寄り付き前 ／ 売買の助言ではありません</span></div><div class="env-rows"><div class="env-row"><div class="env-k">米国（S&amp;P500）前日比</div><div class="env-v"><span style="color:var(--down)">-2.02%</span></div><span class="tag fact">事実</span><div class="env-src">Yahoo Finance ^GSPC・2026-11-19 終値</div></div><div class="env-row"><div class="env-k">想定ギャップの目安（日本株全体の平均）</div><div class="env-v">約<span style="color:var(--down)">-1.5%</span></div><span class="tag guess">推測</span><div class="env-src">傾き0.76×米国前日比・直近250営業日の回帰</div></div><div class="env-row"><div class="env-k">過去の精度</div><div class="env-v small">方向一致 71%・相関 0.58・平均誤差 0.60%（常に0と予測した場合 0.72%）</div><span class="tag fact">事実（過去の検証）</span><div class="env-src">2025-10-06〜2026-11-19（273日、各日をその日より前のデータだけで予測）</div></div><div class="env-row"><div class="env-k">日経225先物（夜間）の動き</div><div class="env-v"><span style="color:var(--down)">-2.72%</span></div><span class="tag fact">事実</span><div class="env-src">CME NIY=F（Yahoo Finance・1時間足）｜2026-11-19 15:00頃 → 2026-11-20 07:00頃</div></div><div class="env-row"><div class="env-k">想定ギャップの目安・先物ベース（日本株全体の平均）</div><div class="env-v">約<span style="color:var(--down)">-1.7%</span></div><span class="tag guess">推測</span><div class="env-src">傾き0.61×先物の動き・直近250営業日の回帰</div></div><div class="env-row"><div class="env-k">過去の精度・先物ベース</div><div class="env-v small">方向一致 82%・相関 0.89・平均誤差 0.36%（常に0と予測した場合 0.73%）</div><span class="tag fact">事実（過去の検証）</span><div class="env-src">262日、各日をその日より前のデータだけで予測</div></div><div class="env-row"><div class="env-k">実際のギャップ（日本株全体の平均）</div><div class="env-v">不明</div><span class="tag unknown">不明</span><div class="env-src">寄り付き後（15:35の更新）に反映されます</div></div></div><details class="env-more"><summary>取得できていない情報</summary><p>PTS・ADR・寄り前気配・適時開示・SNS は、無料データでは取得できないため載せていません。</p></details><p class="env-note">日本株全体の平均の目安であり、個別銘柄の値動きや成績を保証するものではありません。</p></section>
 <details class="howto"><summary>スコアと成績の見方</summary>
@@ -5462,6 +5486,23 @@ details.day-row > .report { padding: 14px; background: var(--bg); border-top: 1p
   });
   if (tabs.length) show(tabs[0].dataset.month);
 })();
+</script>
+<script>
+
+(function () {
+  var root = document.getElementById('pnl-cal');
+  if (!root) return;
+  var months = Array.prototype.slice.call(root.querySelectorAll('.cal-month'));
+  var now = new Date(Date.now() + 9 * 3600 * 1000);
+  var cur = now.getUTCFullYear() + '-' + ('0' + (now.getUTCMonth() + 1)).slice(-2);
+  var idx = months.findIndex(function (m) { return m.dataset.month === cur; });
+  if (idx < 0) idx = months.length - 1;
+  function show() { months.forEach(function (m, i) { m.classList.toggle('active', i === idx); }); }
+  root.querySelector('.cal-prev').addEventListener('click', function () { if (idx > 0) { idx--; show(); } });
+  root.querySelector('.cal-next').addEventListener('click', function () { if (idx < months.length - 1) { idx++; show(); } });
+  show();
+})();
+
 </script>
 </body>
 </html>
