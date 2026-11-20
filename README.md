@@ -171,7 +171,7 @@ python scripts/seed_state.py
 - タスクスケジューラの「日本株デイクローズリサーチ」タスクは**無効化**（削除はしていないので、
   `taskschd.msc` から有効化すれば再開できる）。
 - `run_daily.py` 実行時に `reports/*.md` から `docs/index.html` を生成し、GitHubへ自動push する
-  ようにした。公開先はGitHub Pages: **https://genepas1006-oss.github.io/rpt-dbe9b6a265/**
+  ようにした。公開先はGitHub Pages: **https://p1cotaron252543.github.io/rpt-dbe9b6a265/**
   （スマホ等からもログイン不要で閲覧可能）。
 - このリポジトリ（`genepas1006-oss/rpt-dbe9b6a265`）は推測困難なランダム名の**公開(public)**
   リポジトリ。個人の株予測データを含むため、URLを他人に教えないこと。
